@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/db/connection'
-import Receipt from '@/lib/db/models/Receipt'
-import '@/lib/db/models/register-models' // Register all models for populate
 import { validateAdminRequest } from '@/lib/auth'
+import { receiptRepository, PeriodType } from '@/lib/db/repositories'
+import { BillingStatsDTO } from '@/lib/dto/billing-stats.dto'
+
+const VALID_PERIODS: PeriodType[] = ['today', 'week', 'month', 'year']
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,41 +12,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error }, { status: 401 })
     }
 
-    await dbConnect()
+    // Get period from query params
+    const searchParams = request.nextUrl.searchParams
+    const periodParam = searchParams.get('period') || 'month'
+    const period = VALID_PERIODS.includes(periodParam as PeriodType)
+      ? (periodParam as PeriodType)
+      : 'month'
 
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const stats = await receiptRepository.getBillingStats(period)
 
-    const [
-      totalReceipts,
-      completedReceipts,
-      pendingReceipts,
-      allCompletedReceipts,
-      thisMonthReceipts,
-      recentReceipts,
-    ] = await Promise.all([
-      Receipt.countDocuments(),
-      Receipt.countDocuments({ status: 'COMPLETED' }),
-      Receipt.countDocuments({ status: { $in: ['PENDING', 'PROCESSING'] } }),
-      Receipt.find({ status: 'COMPLETED' }).select('total currency'),
-      Receipt.find({ status: 'COMPLETED', createdAt: { $gte: startOfMonth } }).select('total currency'),
-      Receipt.find()
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .populate('accountId', 'uid email billing'),
-    ])
+    const response: BillingStatsDTO = {
+      totalReceipts: stats.totalReceipts,
+      completedReceipts: stats.completedReceipts,
+      pendingReceipts: stats.pendingReceipts,
+      failedReceipts: stats.failedReceipts,
+      revenueByCurrency: stats.revenueByCurrency,
+      revenuePreviousByCurrency: stats.revenuePreviousByCurrency,
+      recentReceipts: stats.recentReceipts,
+      period: {
+        type: period,
+        start: stats.periodRange.start.toISOString(),
+        end: stats.periodRange.end.toISOString(),
+      },
+    }
 
-    const totalRevenue = allCompletedReceipts.reduce((sum, r) => sum + (r.total || 0), 0)
-    const revenueThisMonth = thisMonthReceipts.reduce((sum, r) => sum + (r.total || 0), 0)
-
-    return NextResponse.json({
-      totalReceipts,
-      completedReceipts,
-      pendingReceipts,
-      totalRevenue: Math.round(totalRevenue * 100) / 100,
-      revenueThisMonth: Math.round(revenueThisMonth * 100) / 100,
-      recentReceipts,
-    })
+    return NextResponse.json(response)
   } catch (error) {
     console.error('Billing stats error:', error)
     return NextResponse.json(

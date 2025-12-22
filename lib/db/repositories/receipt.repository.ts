@@ -4,6 +4,59 @@ import Receipt, { IReceipt } from '@/lib/db/models/Receipt'
 import '@/lib/db/models/register-models' // Register all models for populate
 import { ExtendedModel } from '@/lib/db/types/model.types'
 import { ReceiptStatusType } from '@/lib/constants'
+import { RevenueByMonedaDTO, RecentReceiptDTO, toRecentReceiptDTO } from '@/lib/dto/billing-stats.dto'
+
+export type PeriodType = 'today' | 'week' | 'month' | 'year'
+
+export interface PeriodRange {
+  start: Date
+  end: Date
+  previousStart: Date
+  previousEnd: Date
+}
+
+/**
+ * Calculate period ranges based on period type
+ */
+export function calculatePeriodRange(period: PeriodType): PeriodRange {
+  const now = new Date()
+  const end = now
+
+  let start: Date
+  let previousStart: Date
+  let previousEnd: Date
+
+  switch (period) {
+    case 'today':
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      previousEnd = new Date(start.getTime() - 1)
+      previousStart = new Date(previousEnd.getFullYear(), previousEnd.getMonth(), previousEnd.getDate())
+      break
+    case 'week':
+      const dayOfWeek = now.getDay()
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diffToMonday)
+      previousEnd = new Date(start.getTime() - 1)
+      previousStart = new Date(previousEnd.getFullYear(), previousEnd.getMonth(), previousEnd.getDate() - 6)
+      break
+    case 'month':
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      previousEnd = new Date(start.getTime() - 1)
+      previousStart = new Date(previousEnd.getFullYear(), previousEnd.getMonth(), 1)
+      break
+    case 'year':
+      start = new Date(now.getFullYear(), 0, 1)
+      previousEnd = new Date(start.getTime() - 1)
+      previousStart = new Date(previousEnd.getFullYear(), 0, 1)
+      break
+    default:
+      start = new Date(now.getFullYear(), now.getMonth(), 1)
+      previousEnd = new Date(start.getTime() - 1)
+      previousStart = new Date(previousEnd.getFullYear(), previousEnd.getMonth(), 1)
+  }
+
+  return { start, end, previousStart, previousEnd }
+}
 
 export interface ReceiptSearchFilters {
   status?: ReceiptStatusType
@@ -174,6 +227,131 @@ class ReceiptRepository extends BaseRepository<IReceipt> {
     ])
 
     return { total, completed, pending, failed }
+  }
+
+  /**
+   * Get billing stats for dashboard
+   */
+  async getBillingStats(period: PeriodType = 'month'): Promise<{
+    totalReceipts: number
+    completedReceipts: number
+    pendingReceipts: number
+    failedReceipts: number
+    revenueByCurrency: RevenueByMonedaDTO[]
+    revenuePreviousByCurrency: RevenueByMonedaDTO[]
+    recentReceipts: RecentReceiptDTO[]
+    periodRange: PeriodRange
+  }> {
+    await this.ensureConnection()
+
+    const periodRange = calculatePeriodRange(period)
+
+    const [
+      totalReceipts,
+      completedReceipts,
+      pendingReceipts,
+      failedReceipts,
+      revenueCurrentPeriod,
+      revenuePreviousPeriod,
+      recentReceiptsDocs,
+    ] = await Promise.all([
+      // Counts (all time)
+      this.count({ deletedAt: null }),
+      this.count({ status: 'COMPLETED', deletedAt: null }),
+      this.count({ status: { $in: ['PENDING', 'PROCESSING'] }, deletedAt: null }),
+      this.count({ status: 'FAILED', deletedAt: null }),
+
+      // Revenue current period by currency
+      Receipt.aggregate<{ _id: string; total: number; count: number }>([
+        {
+          $match: {
+            status: 'COMPLETED',
+            deletedAt: null,
+            createdAt: { $gte: periodRange.start, $lte: periodRange.end },
+          },
+        },
+        {
+          $group: {
+            _id: '$currency',
+            total: { $sum: '$total' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // Revenue previous period by currency
+      Receipt.aggregate<{ _id: string; total: number; count: number }>([
+        {
+          $match: {
+            status: 'COMPLETED',
+            deletedAt: null,
+            createdAt: { $gte: periodRange.previousStart, $lte: periodRange.previousEnd },
+          },
+        },
+        {
+          $group: {
+            _id: '$currency',
+            total: { $sum: '$total' },
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // Recent receipts
+      Receipt.find({ deletedAt: null })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate({
+          path: 'accountId',
+          select: 'uid email billing',
+        })
+        .select('uid status total currency createdAt accountId')
+        .lean(),
+    ])
+
+    // Transform revenue data
+    const revenueByCurrency: RevenueByMonedaDTO[] = revenueCurrentPeriod.map((r) => ({
+      currency: r._id || 'USD',
+      total: Math.round(r.total * 100) / 100,
+      count: r.count,
+    }))
+
+    const revenuePreviousByCurrency: RevenueByMonedaDTO[] = revenuePreviousPeriod.map((r) => ({
+      currency: r._id || 'USD',
+      total: Math.round(r.total * 100) / 100,
+      count: r.count,
+    }))
+
+    // Transform recent receipts using DTO
+    const recentReceipts: RecentReceiptDTO[] = recentReceiptsDocs.map((receipt) => {
+      const accountId = receipt.accountId as unknown as {
+        uid: string
+        email: string
+        billing?: { name?: string }
+      } | undefined
+
+      return {
+        uid: receipt.uid,
+        status: receipt.status,
+        total: receipt.total,
+        currency: receipt.currency,
+        accountUid: accountId?.uid || '',
+        accountEmail: accountId?.email || '',
+        accountName: accountId?.billing?.name,
+        createdAt: new Date(receipt.createdAt).toISOString(),
+      }
+    })
+
+    return {
+      totalReceipts,
+      completedReceipts,
+      pendingReceipts,
+      failedReceipts,
+      revenueByCurrency,
+      revenuePreviousByCurrency,
+      recentReceipts,
+      periodRange,
+    }
   }
 }
 
