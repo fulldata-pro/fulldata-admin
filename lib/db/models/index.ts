@@ -5,9 +5,8 @@ export { default as User } from './User'
 export { default as Receipt } from './Receipt'
 export { default as Invoice } from './Invoice'
 export { default as Proxy } from './Proxy'
-export { default as Benefit } from './Benefit'
 export { default as Config } from './Config'
-export { default as AccountBalance } from './AccountBalance'
+export { default as AccountTokenBalance } from './AccountTokenBalance'
 
 // Geographic models
 export { default as Country } from './Country'
@@ -17,7 +16,6 @@ export { default as CountrySettings } from './CountrySettings'
 
 // Financial models
 export { default as Currency } from './Currency'
-export { default as PaymentMethod } from './PaymentMethod'
 export { default as Movement } from './Movement'
 export { default as Referral } from './Referral'
 export { default as DiscountCode } from './DiscountCode'
@@ -26,7 +24,6 @@ export { default as TokenPricing } from './TokenPricing'
 
 // Account related models
 export { default as AccountApi } from './AccountApi'
-export { default as AccountCredits } from './AccountCredits'
 export { default as AccountTag } from './AccountTag'
 export { default as AccountInvitation } from './AccountInvitation'
 
@@ -39,14 +36,15 @@ export { default as WebhookLog } from './WebhookLog'
 
 // Type exports - Core models
 export type { IAdmin } from './Admin'
+export { AdminStatus, AdminRole } from './Admin'
 export type { IAccount, IBilling } from './Account'
 export type { IUser } from './User'
 export type { IReceipt, IReceiptTokens } from './Receipt'
 export type { IInvoice, IAFIPData } from './Invoice'
-export type { IProxy, IProxyService, IProxyPrompt } from './Proxy'
-export type { IBenefit, IBenefitAdvantage, IBenefitUse } from './Benefit'
-export type { IConfig, ISearchExpiration, IReferralConfig, IBenefitFirstPurchase } from './Config'
-export type { IAccountBalance, ISearchBalance } from './AccountBalance'
+export type { IProxy, IProxyService, IProxyPrompt, IProxyServicePrice } from './Proxy'
+export type { IConfig } from './Config'
+export { ConfigReferralType } from './Config'
+export type { IAccountTokenBalance } from './AccountTokenBalance'
 
 // Type exports - Geographic models
 export type { ICountry } from './Country'
@@ -56,7 +54,6 @@ export type { ICountrySettings } from './CountrySettings'
 
 // Type exports - Financial models
 export type { ICurrency, IExchangeRate } from './Currency'
-export type { IPaymentMethod } from './PaymentMethod'
 export type { IMovement, IMovementSearch, IMovementMetadata } from './Movement'
 export type { IReferral } from './Referral'
 export type { IDiscountCode, IDiscountCodeUsage } from './DiscountCode'
@@ -65,7 +62,6 @@ export type { ITokenPricing, ITokenPackage, IPriceHistory } from './TokenPricing
 
 // Type exports - Account related models
 export type { IAccountApi, IWebhookConfig } from './AccountApi'
-export type { IAccountCredits, ICreditMetadata } from './AccountCredits'
 export type { IAccountTag } from './AccountTag'
 export type { IAccountInvitation } from './AccountInvitation'
 

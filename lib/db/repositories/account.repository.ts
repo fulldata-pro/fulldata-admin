@@ -83,24 +83,6 @@ class AccountRepository extends BaseRepository<IAccount> {
   }
 
   /**
-   * Find account with benefits populated
-   */
-  async findWithBenefits(accountId: string | Types.ObjectId): Promise<IAccount | null> {
-    return this.findById(accountId, {
-      populate: [
-        {
-          path: 'users.user',
-          select: 'uid firstName lastName email phone phoneCountryCode avatar emailVerifiedAt phoneVerifiedAt',
-        },
-        {
-          path: 'benefits.benefit',
-          select: 'name code advantage isEnabled',
-        },
-      ],
-    })
-  }
-
-  /**
    * Check if name already exists
    */
   async nameExists(name: string, excludeId?: string | Types.ObjectId): Promise<boolean> {
@@ -221,50 +203,6 @@ class AccountRepository extends BaseRepository<IAccount> {
     })
   }
 
-  /**
-   * Add benefit to account
-   */
-  async addBenefit(
-    accountId: string | Types.ObjectId,
-    benefitId: string | Types.ObjectId,
-    expiresAt?: Date
-  ): Promise<IAccount | null> {
-    await this.ensureConnection()
-    return this.model.findByIdAndUpdate(
-      accountId,
-      {
-        $push: {
-          benefits: {
-            benefit: benefitId,
-            appliedAt: new Date(),
-            expiresAt,
-          },
-        },
-        updatedAt: new Date(),
-      },
-      { new: true }
-    ).exec()
-  }
-
-  /**
-   * Remove benefit from account
-   */
-  async removeBenefit(
-    accountId: string | Types.ObjectId,
-    benefitId: string | Types.ObjectId
-  ): Promise<IAccount | null> {
-    await this.ensureConnection()
-    return this.model.findByIdAndUpdate(
-      accountId,
-      {
-        $pull: {
-          benefits: { benefit: benefitId },
-        },
-        updatedAt: new Date(),
-      },
-      { new: true }
-    ).exec()
-  }
 }
 
 export const accountRepository = new AccountRepository()

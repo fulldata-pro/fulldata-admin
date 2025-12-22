@@ -1,24 +1,37 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
 import bcrypt from 'bcryptjs'
-import { AdminRoles, AdminStatus, AdminRole, AdminStatusType } from '@/lib/constants'
+import { addUidMiddleware } from '../helpers/uid-middleware'
+import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
+
+export enum AdminStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  SUSPENDED = 'SUSPENDED',
+}
+
+export enum AdminRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  MODERATOR = 'MODERATOR',
+}
 
 export interface IAdmin extends Document {
-  _id: Types.ObjectId
+  id: number
   uid: string
   name: string
+  avatar?: string
+  phone?: string
   email: string
   password: string
-  phone?: string
-  avatar?: string
+  status: AdminStatus
   role: AdminRole
-  status: AdminStatusType
   lastLoginAt?: Date
   createdBy?: Types.ObjectId
-  updatedBy?: Types.ObjectId
-  deletedAt?: Date
-  deletedBy?: Types.ObjectId
   createdAt: Date
-  updatedAt: Date
+  updatedBy?: Types.ObjectId
+  updatedAt?: Date
+  deletedBy?: Types.ObjectId
+  deletedAt?: Date
   comparePassword(candidatePassword: string): Promise<boolean>
 }
 
@@ -28,70 +41,42 @@ interface IAdminModel extends Model<IAdmin> {
 
 const AdminSchema = new Schema<IAdmin>(
   {
-    uid: {
-      type: String,
-      required: true,
-      unique: true,
-      default: () => `adm_${new Types.ObjectId().toString()}`,
-    },
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-      trim: true,
-    },
-    password: {
-      type: String,
-      required: true,
-      select: false,
-    },
-    phone: {
-      type: String,
-      trim: true,
-    },
-    avatar: {
-      type: String,
-    },
-    role: {
-      type: String,
-      enum: Object.values(AdminRoles),
-      default: AdminRoles.ADMIN,
-    },
+    id: { type: Number, required: true, unique: true },
+    uid: { type: String, unique: true },
+    name: { type: String, required: true },
+    avatar: { type: String },
+    phone: { type: String },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
     status: {
       type: String,
       enum: Object.values(AdminStatus),
       default: AdminStatus.ACTIVE,
     },
-    lastLoginAt: {
-      type: Date,
+    role: {
+      type: String,
+      enum: Object.values(AdminRole),
+      required: true,
     },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'Admin',
-    },
-    updatedBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'Admin',
-    },
-    deletedAt: {
-      type: Date,
-    },
-    deletedBy: {
-      type: Schema.Types.ObjectId,
-      ref: 'Admin',
-    },
+    lastLoginAt: { type: Date },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+    createdAt: { type: Date, default: Date.now },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+    updatedAt: { type: Date },
+    deletedBy: { type: Schema.Types.ObjectId, ref: 'Admin' },
+    deletedAt: { type: Date },
   },
   {
     collection: 'admins',
-    timestamps: true,
+    timestamps: false,
   }
 )
+
+// Agregar middleware para generar uid desde _id
+addUidMiddleware(AdminSchema)
+
+// Agregar middleware para soft delete
+addSoftDeleteMiddleware(AdminSchema)
 
 // Hash password before saving
 AdminSchema.pre('save', async function (next) {
@@ -117,12 +102,6 @@ AdminSchema.methods.comparePassword = async function (
 AdminSchema.statics.findByEmail = function (email: string) {
   return this.findOne({ email, deletedAt: null }).select('+password')
 }
-
-// Indexes
-// Note: email index is already created by unique: true
-AdminSchema.index({ role: 1 })
-AdminSchema.index({ status: 1 })
-AdminSchema.index({ deletedAt: 1 })
 
 const Admin: IAdminModel =
   (mongoose.models.Admin as IAdminModel) ||

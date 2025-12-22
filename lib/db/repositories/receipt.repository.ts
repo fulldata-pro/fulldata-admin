@@ -105,10 +105,6 @@ class ReceiptRepository extends BaseRepository<IReceipt> {
         select: 'id uid email billing avatar',
       },
       {
-        path: 'paymentMethodId',
-        select: 'name type provider',
-      },
-      {
         path: 'invoiceId',
         select: '_id uid number status',
       },
@@ -187,7 +183,7 @@ class ReceiptRepository extends BaseRepository<IReceipt> {
   }
 
   /**
-   * Find receipts with full details (account and payment method populated)
+   * Find receipts with full details (account populated)
    */
   async findWithFullDetails(receiptId: string | Types.ObjectId): Promise<IReceipt | null> {
     return this.findById(receiptId, {
@@ -195,10 +191,6 @@ class ReceiptRepository extends BaseRepository<IReceipt> {
         {
           path: 'accountId',
           select: 'uid email billing name',
-        },
-        {
-          path: 'paymentMethodId',
-          select: 'name type provider',
         },
         {
           path: 'invoiceId',

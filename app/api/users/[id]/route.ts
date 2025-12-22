@@ -27,14 +27,14 @@ export async function GET(
     const accounts = await Account.find({
       'users.user': user._id,
       deletedAt: null,
-    }).select('_id uid name email status users')
+    }).select('_id uid name status users')
 
     const userAccounts = accounts.map(acc => {
       const userRole = acc.users.find(u => u.user.toString() === user._id.toString())?.role
       return {
         _id: acc._id,
         uid: acc.uid,
-        name: acc.name || acc.email,
+        name: acc.name,
         status: acc.status,
         role: userRole,
       }
@@ -79,7 +79,7 @@ export async function DELETE(
       'users.user': user._id,
       'users.role': 'OWNER',
       deletedAt: null,
-    }).select('_id name email')
+    }).select('_id name users')
 
     // Filter to only get accounts where this user is actually the owner
     const actualOwnerAccounts = ownerAccounts.filter(acc =>
@@ -87,7 +87,7 @@ export async function DELETE(
     )
 
     if (actualOwnerAccounts.length > 0) {
-      const accountNames = actualOwnerAccounts.map(a => a.name || a.email).join(', ')
+      const accountNames = actualOwnerAccounts.map(a => a.name).join(', ')
       return NextResponse.json(
         {
           error: 'No se puede eliminar el usuario porque es dueño de las siguientes cuentas',

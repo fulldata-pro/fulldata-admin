@@ -189,7 +189,7 @@ class ProxyRepository extends BaseRepository<IProxy> {
             proxyName: proxy.name,
             countryCode: proxy.countryCode,
             serviceType: service.type,
-            tokenCost: service.tokenCost,
+            tokenCost: service.tokenCost ?? 0,
           })
         }
       }

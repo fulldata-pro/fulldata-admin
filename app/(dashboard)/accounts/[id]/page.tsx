@@ -30,12 +30,19 @@ interface Benefit {
   isEnabled: boolean
 }
 
-interface SearchBalance {
-  type: ServiceType
-  proxyId: string
+interface TokenBalance {
   totalAvailable: number
   totalPurchased: number
+  totalBonus: number
   totalConsumed: number
+  totalRefunded: number
+  consumptionByService?: {
+    [key: string]: {
+      tokensUsed: number
+      searchCount: number
+      lastUsed?: string
+    }
+  }
 }
 
 interface AccountBenefit {
@@ -80,9 +87,6 @@ interface Account {
   updatedAt?: string
 }
 
-interface Balance {
-  searchBalances: SearchBalance[]
-}
 
 interface WebhookConfig {
   type: string
@@ -114,7 +118,7 @@ export default function AccountDetailPage() {
   const params = useParams()
   const id = params?.id as string
   const [account, setAccount] = useState<Account | null>(null)
-  const [balance, setBalance] = useState<Balance | null>(null)
+  const [tokenBalance, setTokenBalance] = useState<TokenBalance | null>(null)
   const [accountApi, setAccountApi] = useState<AccountApi | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('info')
@@ -137,7 +141,7 @@ export default function AccountDetailPage() {
         if (response.ok) {
           const data = await response.json()
           setAccount(data.account)
-          setBalance(data.balance)
+          setTokenBalance(data.tokenBalance)
           setAccountApi(data.accountApi)
         } else if (response.status === 404) {
           toast.error('Cuenta no encontrada')
@@ -224,7 +228,7 @@ export default function AccountDetailPage() {
 
       if (response.ok) {
         setAccount((prev) =>
-          prev ? { ...prev, users: prev.users.filter((u) => u._id !== userId) } : null
+          prev ? { ...prev, users: prev.users.filter((u) => u.user._id !== userId) } : null
         )
         toast.success('Usuario removido correctamente')
       } else {
@@ -251,16 +255,14 @@ export default function AccountDetailPage() {
     }
   }
 
-  const getTotalCredits = () => {
-    if (!balance?.searchBalances) return { available: 0, purchased: 0, consumed: 0 }
-    return balance.searchBalances.reduce(
-      (acc, sb) => ({
-        available: acc.available + sb.totalAvailable,
-        purchased: acc.purchased + sb.totalPurchased,
-        consumed: acc.consumed + sb.totalConsumed,
-      }),
-      { available: 0, purchased: 0, consumed: 0 }
-    )
+  const getTotalTokens = () => {
+    if (!tokenBalance) return { available: 0, purchased: 0, consumed: 0, bonus: 0 }
+    return {
+      available: tokenBalance.totalAvailable,
+      purchased: tokenBalance.totalPurchased,
+      consumed: tokenBalance.totalConsumed,
+      bonus: tokenBalance.totalBonus,
+    }
   }
 
   if (isLoading) {
@@ -279,8 +281,8 @@ export default function AccountDetailPage() {
   }
 
   const statusConfig = getStatusConfig(account.status)
-  const totalCredits = getTotalCredits()
-  const creditUsagePercent = totalCredits.purchased > 0 ? (totalCredits.consumed / totalCredits.purchased) * 100 : 0
+  const totalTokens = getTotalTokens()
+  const tokenUsagePercent = totalTokens.purchased > 0 ? (totalTokens.consumed / totalTokens.purchased) * 100 : 0
 
   const tabs = [
     { id: 'info', label: 'Informacion', icon: 'ki-information-2' },
@@ -365,8 +367,8 @@ export default function AccountDetailPage() {
               <p className="text-2xl font-bold">{account.users?.length || 0}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm mb-1">Creditos Disponibles</p>
-              <p className="text-2xl font-bold text-primary">{totalCredits.available.toLocaleString()}</p>
+              <p className="text-gray-400 text-sm mb-1">Tokens Disponibles</p>
+              <p className="text-2xl font-bold text-primary">{totalTokens.available.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Balance Referidos</p>
@@ -821,49 +823,54 @@ export default function AccountDetailPage() {
           <div className="card bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h3 className="text-lg font-semibold text-secondary mb-1">Resumen de Creditos</h3>
-                <p className="text-gray-500">Estado general de los creditos de la cuenta</p>
+                <h3 className="text-lg font-semibold text-secondary mb-1">Resumen de Tokens</h3>
+                <p className="text-gray-500">Estado general de los tokens de la cuenta</p>
               </div>
               <div className="flex items-center gap-8">
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-primary">{totalCredits.available.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-primary">{totalTokens.available.toLocaleString()}</p>
                   <p className="text-sm text-gray-500">Disponibles</p>
                 </div>
                 <div className="h-12 w-px bg-gray-300"></div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-gray-700">{totalCredits.purchased.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-gray-700">{totalTokens.purchased.toLocaleString()}</p>
                   <p className="text-sm text-gray-500">Comprados</p>
                 </div>
                 <div className="h-12 w-px bg-gray-300"></div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-gray-500">{totalCredits.consumed.toLocaleString()}</p>
+                  <p className="text-3xl font-bold text-green-600">{totalTokens.bonus.toLocaleString()}</p>
+                  <p className="text-sm text-gray-500">Bonificados</p>
+                </div>
+                <div className="h-12 w-px bg-gray-300"></div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-gray-500">{totalTokens.consumed.toLocaleString()}</p>
                   <p className="text-sm text-gray-500">Consumidos</p>
                 </div>
               </div>
             </div>
-            {totalCredits.purchased > 0 && (
+            {totalTokens.purchased > 0 && (
               <div className="mt-4 pt-4 border-t border-primary/20">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Uso total de creditos</span>
-                  <span className="text-sm font-medium">{creditUsagePercent.toFixed(1)}%</span>
+                  <span className="text-sm text-gray-600">Uso total de tokens</span>
+                  <span className="text-sm font-medium">{tokenUsagePercent.toFixed(1)}%</span>
                 </div>
                 <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-primary to-primary-dark rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(creditUsagePercent, 100)}%` }}
+                    style={{ width: `${Math.min(tokenUsagePercent, 100)}%` }}
                   ></div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Balance by Service */}
-          {balance?.searchBalances && balance.searchBalances.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {balance.searchBalances.map((sb, index) => {
-                const usagePercent = sb.totalPurchased > 0 ? (sb.totalConsumed / sb.totalPurchased) * 100 : 0
-                return (
-                  <div key={index} className="card hover:shadow-md transition-shadow">
+          {/* Consumption by Service */}
+          {tokenBalance?.consumptionByService && Object.keys(tokenBalance.consumptionByService).length > 0 ? (
+            <div>
+              <h3 className="text-lg font-semibold text-secondary mb-4">Consumo por Servicio</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(tokenBalance.consumptionByService).map(([serviceType, data]) => (
+                  <div key={serviceType} className="card hover:shadow-md transition-shadow">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -873,32 +880,41 @@ export default function AccountDetailPage() {
                             <span className="path3"></span>
                           </i>
                         </div>
-                        <span className="font-medium text-secondary">{ServiceLabels[sb.type]}</span>
+                        <span className="font-medium text-secondary">{ServiceLabels[serviceType as ServiceType] || serviceType}</span>
                       </div>
-                      <span className="text-2xl font-bold text-primary">{sb.totalAvailable.toLocaleString()}</span>
                     </div>
                     <div className="space-y-3">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Comprados</span>
-                        <span className="font-medium">{sb.totalPurchased.toLocaleString()}</span>
+                        <span className="text-gray-500">Tokens usados</span>
+                        <span className="font-medium">{data.tokensUsed.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Consumidos</span>
-                        <span className="font-medium">{sb.totalConsumed.toLocaleString()}</span>
+                        <span className="text-gray-500">Busquedas</span>
+                        <span className="font-medium">{data.searchCount.toLocaleString()}</span>
                       </div>
-                      <div className="pt-2">
-                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(usagePercent, 100)}%` }}
-                          ></div>
+                      {data.lastUsed && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Ultimo uso</span>
+                          <span className="font-medium">{formatDate(data.lastUsed)}</span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1 text-right">{usagePercent.toFixed(1)}% usado</p>
-                      </div>
+                      )}
                     </div>
                   </div>
-                )
-              })}
+                ))}
+              </div>
+            </div>
+          ) : tokenBalance ? (
+            <div className="card text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <i className="ki-duotone ki-chart-simple text-3xl text-gray-400">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                  <span className="path3"></span>
+                  <span className="path4"></span>
+                </i>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">Sin consumo registrado</h3>
+              <p className="text-gray-500">Esta cuenta aun no ha consumido tokens</p>
             </div>
           ) : (
             <div className="card text-center py-12">
@@ -911,7 +927,7 @@ export default function AccountDetailPage() {
                 </i>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-1">Sin balance</h3>
-              <p className="text-gray-500">Esta cuenta aun no tiene creditos asignados</p>
+              <p className="text-gray-500">Esta cuenta aun no tiene tokens asignados</p>
             </div>
           )}
         </div>

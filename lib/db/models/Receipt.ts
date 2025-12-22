@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
-import { ReceiptStatus, ReceiptStatusType } from '@/lib/constants'
+import { ReceiptStatus, ReceiptStatusType, PaymentProvider } from '@/lib/constants'
 import { addUidMiddleware } from '../helpers/uid-middleware'
 
 export interface IReceiptTokens {
@@ -25,8 +25,8 @@ export interface IReceipt extends Document {
   subtotal: number
   /** Moneda de la transacción */
   currency: string
-  /** Método de pago */
-  paymentMethodId?: Types.ObjectId
+  /** Proveedor de pago (MERCADO_PAGO, STRIPE, etc.) */
+  paymentProvider?: string
   /** Información de tokens comprados */
   tokens?: IReceiptTokens
   /** Beneficio adherido */
@@ -98,9 +98,9 @@ const ReceiptSchema = new Schema<IReceipt>(
       type: ReceiptTokensSchema,
       required: false,
     },
-    paymentMethodId: {
-      type: Schema.Types.ObjectId,
-      ref: 'PaymentMethod',
+    paymentProvider: {
+      type: String,
+      enum: Object.values(PaymentProvider),
     },
     providerTransactionId: String,
     providerTransactionUrl: String,

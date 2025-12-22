@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/db/connection'
-import Config from '@/lib/db/models/Config'
+import Config, { ConfigReferralType } from '@/lib/db/models/Config'
 import { validateAdminRequest } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -18,18 +18,35 @@ export async function GET(request: NextRequest) {
       config = new Config({
         searches: {
           expirations: {
-            time: 30,
+            time: 90,
             isEnabled: true,
           },
         },
         referrals: {
-          isEnabled: false,
-          type: 'PERCENTAGE',
-          amount: 10,
+          account: {
+            isEnabled: true,
+            type: ConfigReferralType.PERCENTAGE,
+            amount: 0.05,
+            maxAmount: 25,
+          },
+          referred: {
+            isEnabled: true,
+            type: ConfigReferralType.AMOUNT,
+            amount: 25,
+            maxAmount: 0,
+          },
+          limits: {
+            referrals: 2,
+            referred: 0,
+          },
+          minAmount: 10,
         },
-        benefits: {
+        benefit: {
           firstPurchase: {
-            isEnabled: false,
+            isEnabled: true,
+            type: ConfigReferralType.AMOUNT,
+            amount: 50,
+            maxAmount: 50,
           },
         },
       })
@@ -79,18 +96,35 @@ export async function PUT(request: NextRequest) {
 
     // Update referrals config
     if (body.referrals) {
-      config.referrals = {
-        ...config.referrals,
-        ...body.referrals,
+      if (body.referrals.account) {
+        config.referrals.account = {
+          ...config.referrals.account,
+          ...body.referrals.account,
+        }
+      }
+      if (body.referrals.referred) {
+        config.referrals.referred = {
+          ...config.referrals.referred,
+          ...body.referrals.referred,
+        }
+      }
+      if (body.referrals.limits) {
+        config.referrals.limits = {
+          ...config.referrals.limits,
+          ...body.referrals.limits,
+        }
+      }
+      if (body.referrals.minAmount !== undefined) {
+        config.referrals.minAmount = body.referrals.minAmount
       }
     }
 
-    // Update benefits config
-    if (body.benefits) {
-      if (body.benefits.firstPurchase) {
-        config.benefits.firstPurchase = {
-          ...config.benefits.firstPurchase,
-          ...body.benefits.firstPurchase,
+    // Update benefit config
+    if (body.benefit) {
+      if (body.benefit.firstPurchase) {
+        config.benefit.firstPurchase = {
+          ...config.benefit.firstPurchase,
+          ...body.benefit.firstPurchase,
         }
       }
     }

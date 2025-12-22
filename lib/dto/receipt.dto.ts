@@ -13,12 +13,6 @@ interface AccountDTO {
   billingName?: string
 }
 
-interface PaymentMethodDTO {
-  name: string
-  type?: string
-  provider?: string
-}
-
 interface InvoiceDTO {
   id: string
   uid: string
@@ -56,7 +50,7 @@ export interface ReceiptListItemDTO {
   subtotal: number
   currency: string
   tokens?: TokensDTO
-  paymentMethod?: PaymentMethodDTO
+  paymentProvider?: string
   invoice?: InvoiceDTO
   discountCode?: DiscountCodeDTO
   bulkDiscount?: BulkDiscountDTO
@@ -85,13 +79,8 @@ export function toReceiptListItemDTO(receipt: IReceipt): ReceiptListItemDTO {
     email: '',
   }
 
-  // Transform payment method
-  const paymentMethodId = doc.paymentMethodId as Record<string, unknown> | undefined
-  const paymentMethod: PaymentMethodDTO | undefined = paymentMethodId ? {
-    name: paymentMethodId.name as string,
-    type: paymentMethodId.type as string | undefined,
-    provider: paymentMethodId.provider as string | undefined,
-  } : undefined
+  // Get payment provider
+  const paymentProvider = doc.paymentProvider as string | undefined
 
   // Transform invoice
   const invoiceId = doc.invoiceId as Record<string, unknown> | undefined
@@ -129,7 +118,7 @@ export function toReceiptListItemDTO(receipt: IReceipt): ReceiptListItemDTO {
     subtotal: receipt.subtotal,
     currency: receipt.currency,
     tokens,
-    paymentMethod,
+    paymentProvider,
     invoice,
     discountCode,
     bulkDiscount,

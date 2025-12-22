@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     const accounts = await Account.find({
       'users.user': { $in: userIds },
       deletedAt: null,
-    }).select('_id uid name email status users')
+    }).select('_id uid name status users')
 
     // Map accounts to each user
     const usersWithAccounts = users.map(user => {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
           return {
             _id: acc._id,
             uid: acc.uid,
-            name: acc.name || acc.email,
+            name: acc.name,
             status: acc.status,
             role: userRole,
           }

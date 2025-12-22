@@ -1,6 +1,8 @@
 import mongoose, { Schema, Document, Types } from 'mongoose'
 import { ServiceType, ServicesType } from '@/lib/constants'
 import { ExtendedModel, DocumentCommon } from '@/lib/db/types/model.types'
+import { addUidMiddleware } from '../helpers/uid-middleware'
+import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
 
 export interface IProxyPrompt {
   key: string
@@ -8,9 +10,20 @@ export interface IProxyPrompt {
   type: 'any' | 'number' | 'text'
 }
 
+export interface IProxyServicePrice {
+  amount: number
+  currency: string
+}
+
 export interface IProxyService {
   type: ServiceType
-  tokenCost: number
+
+  // Sistema de tokens (nuevo)
+  tokenCost?: number // Costo en tokens del servicio
+
+  // Sistema de precios legacy (mantener temporalmente para migración)
+  prices: IProxyServicePrice[]
+
   isEnabled: boolean
   hideInSearchForm?: boolean
   prompts: IProxyPrompt[]
@@ -24,6 +37,7 @@ export interface IProxy extends Document, DocumentCommon {
   name: string
   countryCode: string
   services: IProxyService[]
+  currency: string
   createdAt: Date
   updatedAt?: Date
   deletedAt?: Date
@@ -39,6 +53,14 @@ const ProxyPromptSchema = new Schema<IProxyPrompt>(
   { _id: false }
 )
 
+const ProxyServicePriceSchema = new Schema<IProxyServicePrice>(
+  {
+    amount: { type: Number, required: true },
+    currency: { type: String, required: true },
+  },
+  { _id: false }
+)
+
 const ProxyServiceSchema = new Schema<IProxyService>(
   {
     type: {
@@ -46,11 +68,13 @@ const ProxyServiceSchema = new Schema<IProxyService>(
       enum: Object.values(ServicesType),
       required: true,
     },
-    tokenCost: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+
+    // Sistema de tokens (nuevo)
+    tokenCost: { type: Number, min: 0 }, // Costo en tokens, opcional por ahora
+
+    // Sistema legacy (mantener temporalmente)
+    prices: { type: [ProxyServicePriceSchema], required: true },
+
     isEnabled: {
       type: Boolean,
       default: true,
@@ -61,7 +85,7 @@ const ProxyServiceSchema = new Schema<IProxyService>(
     },
     prompts: {
       type: [ProxyPromptSchema],
-      default: [],
+      required: true,
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
@@ -97,10 +121,14 @@ const ProxySchema = new Schema<IProxy>(
       type: [ProxyServiceSchema],
       default: [],
     },
+    currency: {
+      type: String,
+      required: true,
+    },
     deletedAt: Date,
     deletedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Admin',
+      ref: 'User',
     },
   },
   {
@@ -109,13 +137,11 @@ const ProxySchema = new Schema<IProxy>(
   }
 )
 
-// Pre-save middleware to generate uid from _id
-ProxySchema.pre('save', function (next) {
-  if (!this.uid && this._id) {
-    this.uid = `prx_${this._id.toString()}`
-  }
-  next()
-})
+// Agregar middleware para generar uid desde _id
+addUidMiddleware(ProxySchema)
+
+// Agregar middleware para soft delete
+addSoftDeleteMiddleware(ProxySchema)
 
 // Indexes
 ProxySchema.index({ countryCode: 1 })

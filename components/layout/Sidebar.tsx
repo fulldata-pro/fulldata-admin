@@ -42,9 +42,10 @@ const navigation: NavSection[] = [
   {
     title: 'Configuración',
     items: [
+      { label: 'Precios Tokens', href: '/token-pricing', icon: 'ki-dollar' },
       { label: 'Servicios', href: '/services', icon: 'ki-setting-2' },
-      { label: 'Métodos de Pago', href: '/payment-methods', icon: 'ki-wallet' },
-      { label: 'Beneficios', href: '/benefits', icon: 'ki-gift' },
+      { label: 'Códigos de Descuento', href: '/discount-codes', icon: 'ki-discount' },
+      { label: 'Descuentos Cantidad', href: '/bulk-discounts', icon: 'ki-basket' },
       { label: 'Ajustes', href: '/settings', icon: 'ki-gear' },
     ],
   },

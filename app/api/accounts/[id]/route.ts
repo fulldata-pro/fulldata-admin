@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/db/connection'
 import Account from '@/lib/db/models/Account'
-import AccountBalance from '@/lib/db/models/AccountBalance'
+import AccountTokenBalance from '@/lib/db/models/AccountTokenBalance'
 import AccountApi from '@/lib/db/models/AccountApi'
 // Import models to register them for populate
 import '@/lib/db/models/User'
-import '@/lib/db/models/Benefit'
 import { validateAdminRequest } from '@/lib/auth'
 
 interface RouteParams {
@@ -22,14 +21,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
     await dbConnect()
 
-    const [account, balance, accountApi] = await Promise.all([
+    const [account, tokenBalance, accountApi] = await Promise.all([
       Account.findById(id)
         .populate({
           path: 'users.user',
           select: 'uid firstName lastName email phone avatar emailVerifiedAt phoneVerifiedAt',
-        })
-        .populate('benefits', 'name code advantage isEnabled'),
-      AccountBalance.findOne({ accountId: id }),
+        }),
+      AccountTokenBalance.findOne({ accountId: id, deletedAt: null }),
       AccountApi.findOne({ accountId: id, deletedAt: null }),
     ])
 
@@ -37,7 +35,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 })
     }
 
-    return NextResponse.json({ account, balance, accountApi })
+    return NextResponse.json({ account, tokenBalance, accountApi })
   } catch (error) {
     console.error('Get account error:', error instanceof Error ? error.message : error)
     console.error('Stack:', error instanceof Error ? error.stack : '')
@@ -66,16 +64,31 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     // Update fields
-    if (body.email !== undefined) account.email = body.email
-    if (body.phone !== undefined) account.phone = body.phone
+    if (body.name !== undefined) account.name = body.name
+    if (body.avatar !== undefined) account.avatar = body.avatar
     if (body.status !== undefined) account.status = body.status
     if (body.billing !== undefined) {
       account.billing = { ...account.billing, ...body.billing }
     }
-    if (body.maxRequestsPerDay !== undefined) account.maxRequestsPerDay = body.maxRequestsPerDay
-    if (body.maxRequestsPerMonth !== undefined) account.maxRequestsPerMonth = body.maxRequestsPerMonth
-    if (body.webhookEnabled !== undefined) account.webhookEnabled = body.webhookEnabled
-    if (body.apiEnabled !== undefined) account.apiEnabled = body.apiEnabled
+    if (body.serviceConfig !== undefined) {
+      account.serviceConfig = { ...account.serviceConfig, ...body.serviceConfig }
+    }
+    if (body.maxRequestsPerDay !== undefined) {
+      account.serviceConfig = account.serviceConfig || {}
+      account.serviceConfig.maxRequestsPerDay = body.maxRequestsPerDay
+    }
+    if (body.maxRequestsPerMonth !== undefined) {
+      account.serviceConfig = account.serviceConfig || {}
+      account.serviceConfig.maxRequestsPerMonth = body.maxRequestsPerMonth
+    }
+    if (body.webhookEnabled !== undefined) {
+      account.serviceConfig = account.serviceConfig || {}
+      account.serviceConfig.webhookEnabled = body.webhookEnabled
+    }
+    if (body.apiEnabled !== undefined) {
+      account.serviceConfig = account.serviceConfig || {}
+      account.serviceConfig.apiEnabled = body.apiEnabled
+    }
 
     await account.save()
 

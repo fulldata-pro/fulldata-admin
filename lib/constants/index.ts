@@ -145,27 +145,12 @@ export const RequestStatus = {
 
 export type RequestStatusType = (typeof RequestStatus)[keyof typeof RequestStatus]
 
-export const PaymentMethodType = {
-  CREDIT_CARD: 'CREDIT_CARD',
-  DEBIT_CARD: 'DEBIT_CARD',
-  BANK_TRANSFER: 'BANK_TRANSFER',
-  CRYPTO: 'CRYPTO',
-  PAYPAL: 'PAYPAL',
+export const PaymentProvider = {
   MERCADO_PAGO: 'MERCADO_PAGO',
   STRIPE: 'STRIPE',
-  OTHER: 'OTHER',
 } as const
 
-export type PaymentMethodTypeValue = (typeof PaymentMethodType)[keyof typeof PaymentMethodType]
-
-export const PaymentMethodAccepted = {
-  CREDIT_CARD: 'CREDIT_CARD',
-  DEBIT_CARD: 'DEBIT_CARD',
-  ACCOUNT_MONEY: 'ACCOUNT_MONEY',
-  BANK_TRANSFER: 'BANK_TRANSFER',
-} as const
-
-export type PaymentMethodAcceptedValue = (typeof PaymentMethodAccepted)[keyof typeof PaymentMethodAccepted]
+export type PaymentProviderType = (typeof PaymentProvider)[keyof typeof PaymentProvider]
 
 export const AccountInvitationRole = {
   OWNER: 'OWNER',

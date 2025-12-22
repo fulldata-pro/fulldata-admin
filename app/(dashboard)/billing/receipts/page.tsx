@@ -16,12 +16,6 @@ interface ReceiptTokens {
   unitPrice: number
 }
 
-interface PaymentMethod {
-  name: string
-  type?: string
-  provider?: string
-}
-
 interface Invoice {
   id: string
   uid: string
@@ -62,7 +56,7 @@ interface Receipt {
   subtotal: number
   currency: string
   tokens?: ReceiptTokens
-  paymentMethod?: PaymentMethod
+  paymentProvider?: string
   invoice?: Invoice
   discountCode?: DiscountCode
   bulkDiscount?: BulkDiscount
@@ -203,16 +197,16 @@ export default function ReceiptsPage() {
       )
     },
     {
-      key: 'paymentMethod',
+      key: 'paymentProvider',
       header: 'Pago',
       render: (receipt) => {
-        if (!receipt.paymentMethod) {
+        if (!receipt.paymentProvider) {
           return <span className="text-gray-400">-</span>
         }
 
-        const paymentType = receipt.paymentMethod.type?.toLowerCase()
+        const provider = receipt.paymentProvider.toLowerCase()
 
-        if (paymentType === 'mercado_pago') {
+        if (provider === 'mercado_pago') {
           return (
             <Image
               src="/images/payment-methods/mercado_pago.svg"
@@ -224,7 +218,7 @@ export default function ReceiptsPage() {
           )
         }
 
-        if (paymentType === 'stripe') {
+        if (provider === 'stripe') {
           return (
             <Image
               src="/images/payment-methods/stripe.svg"
@@ -236,7 +230,7 @@ export default function ReceiptsPage() {
           )
         }
 
-        return <span className="text-gray-700">{receipt.paymentMethod.name}</span>
+        return <span className="text-gray-700">{receipt.paymentProvider}</span>
       }
     },
     {
@@ -246,7 +240,7 @@ export default function ReceiptsPage() {
         <div>
           {receipt.tokens ? (
             <p className="font-medium text-gray-900">
-              {receipt.tokens.quantity.toLocaleString()}
+              {receipt.tokens.quantity.toLocaleString('es-AR')}
             </p>
           ) : (
             <span className="text-gray-400">-</span>

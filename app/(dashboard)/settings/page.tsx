@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
 
+type ReferralType = 'PERCENTAGE' | 'AMOUNT'
+
 interface Config {
   searches: {
     expirations: {
@@ -11,18 +13,68 @@ interface Config {
     }
   }
   referrals: {
-    isEnabled: boolean
-    type: 'PERCENTAGE' | 'FIXED'
-    amount: number
-    maxAmountPerAccount?: number
-    maxAmountPerReferred?: number
+    account: {
+      isEnabled: boolean
+      type: ReferralType
+      amount: number
+      maxAmount: number
+    }
+    referred: {
+      isEnabled: boolean
+      type: ReferralType
+      amount: number
+      maxAmount: number
+    }
+    limits: {
+      referrals: number
+      referred: number
+    }
+    minAmount: number
   }
-  benefits: {
+  benefit: {
     firstPurchase: {
       isEnabled: boolean
-      benefitId?: string
+      type: ReferralType
+      amount: number
+      maxAmount: number
     }
   }
+}
+
+const defaultConfig: Config = {
+  searches: {
+    expirations: {
+      time: 90,
+      isEnabled: true,
+    },
+  },
+  referrals: {
+    account: {
+      isEnabled: true,
+      type: 'PERCENTAGE',
+      amount: 0.05,
+      maxAmount: 25,
+    },
+    referred: {
+      isEnabled: true,
+      type: 'AMOUNT',
+      amount: 25,
+      maxAmount: 0,
+    },
+    limits: {
+      referrals: 2,
+      referred: 0,
+    },
+    minAmount: 10,
+  },
+  benefit: {
+    firstPurchase: {
+      isEnabled: true,
+      type: 'AMOUNT',
+      amount: 50,
+      maxAmount: 50,
+    },
+  },
 }
 
 export default function SettingsPage() {
@@ -36,7 +88,43 @@ export default function SettingsPage() {
         const response = await fetch('/api/settings')
         if (response.ok) {
           const data = await response.json()
-          setConfig(data.config)
+          // Merge with defaults to ensure all fields exist
+          setConfig({
+            ...defaultConfig,
+            ...data.config,
+            searches: {
+              ...defaultConfig.searches,
+              ...data.config?.searches,
+              expirations: {
+                ...defaultConfig.searches.expirations,
+                ...data.config?.searches?.expirations,
+              },
+            },
+            referrals: {
+              ...defaultConfig.referrals,
+              ...data.config?.referrals,
+              account: {
+                ...defaultConfig.referrals.account,
+                ...data.config?.referrals?.account,
+              },
+              referred: {
+                ...defaultConfig.referrals.referred,
+                ...data.config?.referrals?.referred,
+              },
+              limits: {
+                ...defaultConfig.referrals.limits,
+                ...data.config?.referrals?.limits,
+              },
+            },
+            benefit: {
+              ...defaultConfig.benefit,
+              ...data.config?.benefit,
+              firstPurchase: {
+                ...defaultConfig.benefit.firstPurchase,
+                ...data.config?.benefit?.firstPurchase,
+              },
+            },
+          })
         }
       } catch (error) {
         console.error('Error fetching config:', error)
@@ -130,16 +218,16 @@ export default function SettingsPage() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-secondary">Búsquedas</h2>
-            <p className="text-sm text-gray-500">Configuración de expiración de créditos</p>
+            <p className="text-sm text-gray-500">Configuración de expiración de tokens</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
             <div>
-              <p className="font-medium text-secondary">Expiración de Créditos</p>
+              <p className="font-medium text-secondary">Expiración de Tokens</p>
               <p className="text-sm text-gray-500">
-                Los créditos expirarán después del tiempo configurado
+                Los tokens expirarán después del tiempo configurado
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -192,7 +280,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Referrals Settings */}
+      {/* Referrals Settings - Account (Referrer) */}
       <div className="card">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
@@ -205,29 +293,32 @@ export default function SettingsPage() {
             </i>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-secondary">Sistema de Referidos</h2>
-            <p className="text-sm text-gray-500">Configuración de comisiones por referidos</p>
+            <h2 className="text-lg font-semibold text-secondary">Referidos - Beneficio al Referente</h2>
+            <p className="text-sm text-gray-500">Comisión para quien refiere nuevos clientes</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
             <div>
-              <p className="font-medium text-secondary">Programa de Referidos</p>
+              <p className="font-medium text-secondary">Beneficio al Referente</p>
               <p className="text-sm text-gray-500">
-                Permitir que usuarios ganen comisiones por referir nuevos clientes
+                La cuenta que refiere recibe un beneficio
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={config.referrals.isEnabled}
+                checked={config.referrals.account.isEnabled}
                 onChange={(e) =>
                   setConfig({
                     ...config,
                     referrals: {
                       ...config.referrals,
-                      isEnabled: e.target.checked,
+                      account: {
+                        ...config.referrals.account,
+                        isEnabled: e.target.checked,
+                      },
                     },
                   })
                 }
@@ -237,92 +328,279 @@ export default function SettingsPage() {
             </label>
           </div>
 
-          {config.referrals.isEnabled && (
+          {config.referrals.account.isEnabled && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-gray-200 rounded-xl">
               <div>
-                <label className="label">Tipo de Comisión</label>
+                <label className="label">Tipo de Beneficio</label>
                 <select
-                  value={config.referrals.type}
+                  value={config.referrals.account.type}
                   onChange={(e) =>
                     setConfig({
                       ...config,
                       referrals: {
                         ...config.referrals,
-                        type: e.target.value as 'PERCENTAGE' | 'FIXED',
+                        account: {
+                          ...config.referrals.account,
+                          type: e.target.value as ReferralType,
+                        },
                       },
                     })
                   }
                   className="input-field"
                 >
                   <option value="PERCENTAGE">Porcentaje</option>
-                  <option value="FIXED">Monto Fijo</option>
+                  <option value="AMOUNT">Monto Fijo</option>
                 </select>
               </div>
               <div>
                 <label className="label">
-                  {config.referrals.type === 'PERCENTAGE' ? 'Porcentaje (%)' : 'Monto ($)'}
+                  {config.referrals.account.type === 'PERCENTAGE' ? 'Porcentaje (0.05 = 5%)' : 'Monto (tokens)'}
                 </label>
                 <input
                   type="number"
-                  value={config.referrals.amount}
+                  value={config.referrals.account.amount}
                   onChange={(e) =>
                     setConfig({
                       ...config,
                       referrals: {
                         ...config.referrals,
-                        amount: parseFloat(e.target.value) || 0,
+                        account: {
+                          ...config.referrals.account,
+                          amount: parseFloat(e.target.value) || 0,
+                        },
                       },
                     })
                   }
                   className="input-field"
                   min="0"
-                  step={config.referrals.type === 'PERCENTAGE' ? '1' : '0.01'}
+                  step={config.referrals.account.type === 'PERCENTAGE' ? '0.01' : '1'}
                 />
               </div>
               <div>
-                <label className="label">Máx. por Cuenta (opcional)</label>
+                <label className="label">Monto Máximo (tokens)</label>
                 <input
                   type="number"
-                  value={config.referrals.maxAmountPerAccount || ''}
+                  value={config.referrals.account.maxAmount}
                   onChange={(e) =>
                     setConfig({
                       ...config,
                       referrals: {
                         ...config.referrals,
-                        maxAmountPerAccount: e.target.value
-                          ? parseFloat(e.target.value)
-                          : undefined,
+                        account: {
+                          ...config.referrals.account,
+                          maxAmount: parseFloat(e.target.value) || 0,
+                        },
                       },
                     })
                   }
                   className="input-field"
                   min="0"
-                  placeholder="Sin límite"
-                />
-              </div>
-              <div>
-                <label className="label">Máx. por Referido (opcional)</label>
-                <input
-                  type="number"
-                  value={config.referrals.maxAmountPerReferred || ''}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      referrals: {
-                        ...config.referrals,
-                        maxAmountPerReferred: e.target.value
-                          ? parseFloat(e.target.value)
-                          : undefined,
-                      },
-                    })
-                  }
-                  className="input-field"
-                  min="0"
-                  placeholder="Sin límite"
                 />
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Referrals Settings - Referred */}
+      <div className="card">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
+            <i className="ki-duotone ki-user-tick text-xl text-teal-600">
+              <span className="path1"></span>
+              <span className="path2"></span>
+              <span className="path3"></span>
+            </i>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-secondary">Referidos - Beneficio al Referido</h2>
+            <p className="text-sm text-gray-500">Beneficio para el nuevo cliente referido</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+            <div>
+              <p className="font-medium text-secondary">Beneficio al Referido</p>
+              <p className="text-sm text-gray-500">
+                El nuevo cliente referido recibe un beneficio
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={config.referrals.referred.isEnabled}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    referrals: {
+                      ...config.referrals,
+                      referred: {
+                        ...config.referrals.referred,
+                        isEnabled: e.target.checked,
+                      },
+                    },
+                  })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
+
+          {config.referrals.referred.isEnabled && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-gray-200 rounded-xl">
+              <div>
+                <label className="label">Tipo de Beneficio</label>
+                <select
+                  value={config.referrals.referred.type}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      referrals: {
+                        ...config.referrals,
+                        referred: {
+                          ...config.referrals.referred,
+                          type: e.target.value as ReferralType,
+                        },
+                      },
+                    })
+                  }
+                  className="input-field"
+                >
+                  <option value="PERCENTAGE">Porcentaje</option>
+                  <option value="AMOUNT">Monto Fijo</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">
+                  {config.referrals.referred.type === 'PERCENTAGE' ? 'Porcentaje (0.05 = 5%)' : 'Monto (tokens)'}
+                </label>
+                <input
+                  type="number"
+                  value={config.referrals.referred.amount}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      referrals: {
+                        ...config.referrals,
+                        referred: {
+                          ...config.referrals.referred,
+                          amount: parseFloat(e.target.value) || 0,
+                        },
+                      },
+                    })
+                  }
+                  className="input-field"
+                  min="0"
+                  step={config.referrals.referred.type === 'PERCENTAGE' ? '0.01' : '1'}
+                />
+              </div>
+              <div>
+                <label className="label">Monto Máximo (tokens)</label>
+                <input
+                  type="number"
+                  value={config.referrals.referred.maxAmount}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      referrals: {
+                        ...config.referrals,
+                        referred: {
+                          ...config.referrals.referred,
+                          maxAmount: parseFloat(e.target.value) || 0,
+                        },
+                      },
+                    })
+                  }
+                  className="input-field"
+                  min="0"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Referrals Limits */}
+      <div className="card">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+            <i className="ki-duotone ki-shield-tick text-xl text-orange-600">
+              <span className="path1"></span>
+              <span className="path2"></span>
+            </i>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-secondary">Límites de Referidos</h2>
+            <p className="text-sm text-gray-500">Restricciones del programa de referidos</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-gray-200 rounded-xl">
+          <div>
+            <label className="label">Máx. referidos por cuenta</label>
+            <input
+              type="number"
+              value={config.referrals.limits.referrals}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  referrals: {
+                    ...config.referrals,
+                    limits: {
+                      ...config.referrals.limits,
+                      referrals: parseInt(e.target.value) || 0,
+                    },
+                  },
+                })
+              }
+              className="input-field"
+              min="0"
+            />
+            <p className="text-xs text-gray-500 mt-1">0 = sin límite</p>
+          </div>
+          <div>
+            <label className="label">Máx. veces como referido</label>
+            <input
+              type="number"
+              value={config.referrals.limits.referred}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  referrals: {
+                    ...config.referrals,
+                    limits: {
+                      ...config.referrals.limits,
+                      referred: parseInt(e.target.value) || 0,
+                    },
+                  },
+                })
+              }
+              className="input-field"
+              min="0"
+            />
+            <p className="text-xs text-gray-500 mt-1">0 = sin límite</p>
+          </div>
+          <div>
+            <label className="label">Compra mínima (tokens)</label>
+            <input
+              type="number"
+              value={config.referrals.minAmount}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  referrals: {
+                    ...config.referrals,
+                    minAmount: parseInt(e.target.value) || 0,
+                  },
+                })
+              }
+              className="input-field"
+              min="0"
+            />
+            <p className="text-xs text-gray-500 mt-1">Mínimo para activar beneficio</p>
+          </div>
         </div>
       </div>
 
@@ -356,14 +634,14 @@ export default function SettingsPage() {
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={config.benefits.firstPurchase.isEnabled}
+                checked={config.benefit.firstPurchase.isEnabled}
                 onChange={(e) =>
                   setConfig({
                     ...config,
-                    benefits: {
-                      ...config.benefits,
+                    benefit: {
+                      ...config.benefit,
                       firstPurchase: {
-                        ...config.benefits.firstPurchase,
+                        ...config.benefit.firstPurchase,
                         isEnabled: e.target.checked,
                       },
                     },
@@ -375,30 +653,75 @@ export default function SettingsPage() {
             </label>
           </div>
 
-          {config.benefits.firstPurchase.isEnabled && (
-            <div className="p-4 border border-gray-200 rounded-xl">
-              <label className="label">ID del Beneficio</label>
-              <input
-                type="text"
-                value={config.benefits.firstPurchase.benefitId || ''}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    benefits: {
-                      ...config.benefits,
-                      firstPurchase: {
-                        ...config.benefits.firstPurchase,
-                        benefitId: e.target.value,
+          {config.benefit.firstPurchase.isEnabled && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-gray-200 rounded-xl">
+              <div>
+                <label className="label">Tipo de Beneficio</label>
+                <select
+                  value={config.benefit.firstPurchase.type}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      benefit: {
+                        ...config.benefit,
+                        firstPurchase: {
+                          ...config.benefit.firstPurchase,
+                          type: e.target.value as ReferralType,
+                        },
                       },
-                    },
-                  })
-                }
-                className="input-field"
-                placeholder="ID del beneficio a aplicar"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Puedes obtener el ID desde la sección de Beneficios
-              </p>
+                    })
+                  }
+                  className="input-field"
+                >
+                  <option value="PERCENTAGE">Porcentaje</option>
+                  <option value="AMOUNT">Monto Fijo</option>
+                </select>
+              </div>
+              <div>
+                <label className="label">
+                  {config.benefit.firstPurchase.type === 'PERCENTAGE' ? 'Porcentaje (0.05 = 5%)' : 'Monto (tokens)'}
+                </label>
+                <input
+                  type="number"
+                  value={config.benefit.firstPurchase.amount}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      benefit: {
+                        ...config.benefit,
+                        firstPurchase: {
+                          ...config.benefit.firstPurchase,
+                          amount: parseFloat(e.target.value) || 0,
+                        },
+                      },
+                    })
+                  }
+                  className="input-field"
+                  min="0"
+                  step={config.benefit.firstPurchase.type === 'PERCENTAGE' ? '0.01' : '1'}
+                />
+              </div>
+              <div>
+                <label className="label">Monto Máximo (tokens)</label>
+                <input
+                  type="number"
+                  value={config.benefit.firstPurchase.maxAmount}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      benefit: {
+                        ...config.benefit,
+                        firstPurchase: {
+                          ...config.benefit.firstPurchase,
+                          maxAmount: parseFloat(e.target.value) || 0,
+                        },
+                      },
+                    })
+                  }
+                  className="input-field"
+                  min="0"
+                />
+              </div>
             </div>
           )}
         </div>

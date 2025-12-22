@@ -1,105 +1,109 @@
-import mongoose, { Schema, Document, Model } from 'mongoose'
+import mongoose, { Schema, Document, Model, Types } from 'mongoose'
+import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
 
-export interface ISearchExpiration {
-  time: number
-  isEnabled: boolean
-}
-
-export interface IReferralConfig {
-  isEnabled: boolean
-  type: 'PERCENTAGE' | 'FIXED'
-  amount: number
-  maxAmountPerAccount?: number
-  maxAmountPerReferred?: number
-}
-
-export interface IBenefitFirstPurchase {
-  isEnabled: boolean
-  benefitId?: string
+export enum ConfigReferralType {
+  PERCENTAGE = 'PERCENTAGE',
+  AMOUNT = 'AMOUNT',
 }
 
 export interface IConfig extends Document {
   searches: {
-    expirations: ISearchExpiration
+    expirations: {
+      time: number
+      isEnabled: boolean
+    }
   }
-  referrals: IReferralConfig
-  benefits: {
-    firstPurchase: IBenefitFirstPurchase
+  referrals: {
+    account: {
+      isEnabled: boolean
+      type: ConfigReferralType
+      amount: number
+      maxAmount: number
+    }
+    referred: {
+      isEnabled: boolean
+      type: ConfigReferralType
+      amount: number
+      maxAmount: number
+    }
+    limits: {
+      referrals: number
+      referred: number
+    }
+    minAmount: number
+  }
+  benefit: {
+    firstPurchase: {
+      isEnabled: boolean
+      type: ConfigReferralType
+      amount: number
+      maxAmount: number
+    }
   }
   createdAt: Date
   updatedAt: Date
+  deletedAt?: Date
+  deletedBy?: Types.ObjectId
 }
-
-const SearchExpirationSchema = new Schema<ISearchExpiration>(
-  {
-    time: {
-      type: Number,
-      default: 30,
-    },
-    isEnabled: {
-      type: Boolean,
-      default: true,
-    },
-  },
-  { _id: false }
-)
-
-const ReferralConfigSchema = new Schema<IReferralConfig>(
-  {
-    isEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    type: {
-      type: String,
-      enum: ['PERCENTAGE', 'FIXED'],
-      default: 'PERCENTAGE',
-    },
-    amount: {
-      type: Number,
-      default: 10,
-    },
-    maxAmountPerAccount: Number,
-    maxAmountPerReferred: Number,
-  },
-  { _id: false }
-)
-
-const BenefitFirstPurchaseSchema = new Schema<IBenefitFirstPurchase>(
-  {
-    isEnabled: {
-      type: Boolean,
-      default: false,
-    },
-    benefitId: String,
-  },
-  { _id: false }
-)
 
 const ConfigSchema = new Schema<IConfig>(
   {
     searches: {
       expirations: {
-        type: SearchExpirationSchema,
-        default: {},
+        time: { type: Number, default: 90 },
+        isEnabled: { type: Boolean, default: true },
       },
     },
     referrals: {
-      type: ReferralConfigSchema,
-      default: {},
+      account: {
+        isEnabled: { type: Boolean, default: true },
+        type: {
+          type: String,
+          enum: Object.values(ConfigReferralType),
+          default: ConfigReferralType.PERCENTAGE,
+        },
+        amount: { type: Number, default: 0.05 },
+        maxAmount: { type: Number, default: 25 },
+      },
+      referred: {
+        isEnabled: { type: Boolean, default: true },
+        type: {
+          type: String,
+          enum: Object.values(ConfigReferralType),
+          default: ConfigReferralType.AMOUNT,
+        },
+        amount: { type: Number, default: 25 },
+        maxAmount: { type: Number, default: 0 },
+      },
+      limits: {
+        referrals: { type: Number, default: 2 },
+        referred: { type: Number, default: 0 },
+      },
+      minAmount: { type: Number, default: 10 },
     },
-    benefits: {
+    benefit: {
       firstPurchase: {
-        type: BenefitFirstPurchaseSchema,
-        default: {},
+        isEnabled: { type: Boolean, default: true },
+        type: {
+          type: String,
+          enum: Object.values(ConfigReferralType),
+          default: ConfigReferralType.AMOUNT,
+        },
+        amount: { type: Number, default: 50 },
+        maxAmount: { type: Number, default: 50 },
       },
     },
+    deletedAt: { type: Date },
+    deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   {
     collection: 'config',
     timestamps: true,
   }
 )
+
+// Agregar middleware para soft delete
+addSoftDeleteMiddleware(ConfigSchema)
 
 const Config: Model<IConfig> =
   mongoose.models.Config || mongoose.model<IConfig>('Config', ConfigSchema)

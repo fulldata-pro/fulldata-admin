@@ -14,7 +14,6 @@ export interface ICurrency extends Document {
   name: string
   decimal: number
   exchangeRate?: IExchangeRate[]
-  paymentMethodId?: Types.ObjectId
   createdAt: Date
   updatedAt?: Date
   updatedBy?: Types.ObjectId
@@ -38,9 +37,9 @@ const CurrencySchema = new Schema<ICurrency>(
     name: { type: String, required: true },
     decimal: { type: Number, default: 2 },
     exchangeRate: [ExchangeRateSchema],
-    paymentMethodId: { type: Schema.Types.ObjectId, ref: 'PaymentMethod' },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     deletedAt: { type: Date },
     deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

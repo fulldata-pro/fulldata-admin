@@ -10,16 +10,17 @@ import './Admin'
 import './Receipt'
 import './Invoice'
 import './Movement'
+import './AccountTokenBalance'
 
 // Financial models
-import './PaymentMethod'
 import './DiscountCode'
 import './BulkDiscount'
 import './TokenPricing'
+import './Currency'
 
 // Other models that might be referenced
-import './Benefit'
 import './Proxy'
 import './File'
+import './Config'
 
 export {}
