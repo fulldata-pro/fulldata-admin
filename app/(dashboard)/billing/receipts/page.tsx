@@ -1,34 +1,82 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
-import { ReceiptStatus, ServiceLabels, ServiceType } from '@/lib/constants'
+import { ReceiptStatus } from '@/lib/constants'
 import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
-import { formatDate } from '@/lib/utils/dateUtils'
+import { formatDateTime } from '@/lib/utils/dateUtils'
+import { formatCurrency } from '@/lib/utils/currencyUtils'
+import Image from 'next/image'
 
-interface SearchPurchased {
-  serviceType: ServiceType
+interface ReceiptTokens {
   quantity: number
-  cost: number
+  unitPrice: number
+}
+
+interface PaymentMethod {
+  name: string
+  type?: string
+  provider?: string
+}
+
+interface Invoice {
+  id: string
+  uid: string
+  number?: string
+  status: string
+}
+
+interface DiscountCode {
+  code: string
+  name: string
+  value: number
+  type: string
+}
+
+interface BulkDiscount {
+  name: string
+  tiers: Array<{
+    minTokens: number
+    maxTokens?: number
+    discountPercentage: number
+    label?: string
+  }>
+}
+
+interface Account {
+  id?: number
+  uid: string
+  email: string
+  avatar?: string
+  billingName?: string
 }
 
 interface Receipt {
-  _id: string
+  id: number
   uid: string
   status: string
   total: number
-  totalUSD: number
+  subtotal: number
   currency: string
-  searches: SearchPurchased[]
-  accountId: {
-    _id: string
-    uid: string
-    email: string
-    billing?: { name?: string }
-  }
+  tokens?: ReceiptTokens
+  paymentMethod?: PaymentMethod
+  invoice?: Invoice
+  discountCode?: DiscountCode
+  bulkDiscount?: BulkDiscount
+  expiredAt?: string
+  account: Account
   createdAt: string
+}
+
+const DEFAULT_PAGE_SIZE = 10
+
+interface DiscountPopupPosition {
+  top: number
+  left: number
+  showAbove: boolean
 }
 
 export default function ReceiptsPage() {
@@ -38,13 +86,18 @@ export default function ReceiptsPage() {
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [status, setStatus] = useState(searchParams?.get('status') || '')
+  const [pageSize, setPageSize] = useState(parseInt(searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE)))
+  const [selectedReceipts, setSelectedReceipts] = useState<string[]>([])
+  const [hoveredDiscount, setHoveredDiscount] = useState<string | null>(null)
+  const [discountPopupPosition, setDiscountPopupPosition] = useState<DiscountPopupPosition | null>(null)
+  const discountButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const fetchReceipts = useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
       params.set('page', searchParams?.get('page') || '1')
-      params.set('limit', '10')
+      params.set('limit', String(pageSize))
       if (status) params.set('status', status)
 
       const response = await fetch(`/api/receipts?${params}`)
@@ -59,7 +112,7 @@ export default function ReceiptsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [status, searchParams])
+  }, [status, pageSize, searchParams])
 
   useEffect(() => {
     fetchReceipts()
@@ -76,59 +129,186 @@ export default function ReceiptsPage() {
     }
   }
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'COMPLETED': return 'Completado'
+      case 'PENDING': return 'Pendiente'
+      case 'PROCESSING': return 'Procesando'
+      case 'FAILED': return 'Fallido'
+      case 'REFUNDED': return 'Reembolsado'
+      default: return status
+    }
+  }
+
+  const handleDiscountHover = (receiptUid: string) => {
+    const buttonEl = discountButtonRefs.current.get(receiptUid)
+    if (buttonEl) {
+      const rect = buttonEl.getBoundingClientRect()
+      const popupHeight = 150
+      const spaceBelow = window.innerHeight - rect.bottom
+      const showAbove = spaceBelow < popupHeight && rect.top > popupHeight
+
+      setDiscountPopupPosition({
+        top: showAbove ? rect.top : rect.bottom + 8,
+        left: rect.left,
+        showAbove
+      })
+    }
+    setHoveredDiscount(receiptUid)
+  }
+
+  const handleDiscountLeave = () => {
+    setHoveredDiscount(null)
+    setDiscountPopupPosition(null)
+  }
+
+  const calculateDiscountAmount = (receipt: Receipt): number => {
+    // La diferencia entre subtotal y total es el descuento aplicado
+    return receipt.subtotal - receipt.total
+  }
+
   const columns: Column<Receipt>[] = [
     {
-      key: 'uid',
-      header: 'Recibo',
+      key: 'id',
+      header: 'ID',
       render: (receipt) => (
-        <span className="font-medium text-primary">{receipt.uid}</span>
+        <span className="font-mono text-sm text-gray-600">{receipt.id}</span>
       )
     },
     {
       key: 'account',
       header: 'Cuenta',
       render: (receipt) => (
-        <div>
+        <div className="flex items-center gap-3">
+          {receipt.account?.avatar ? (
+            <img
+              src={receipt.account.avatar}
+              alt=""
+              className="w-8 h-8 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+              <span className="text-xs text-gray-500">
+                {(receipt.account?.billingName || receipt.account?.email || '?')[0].toUpperCase()}
+              </span>
+            </div>
+          )}
           <Link
-            href={`/accounts/${receipt.accountId?._id}`}
+            href={`/accounts?uid=${receipt.account?.uid}`}
             className="font-medium text-gray-900 hover:text-primary transition-colors"
           >
-            {receipt.accountId?.billing?.name || receipt.accountId?.email || 'N/A'}
+            {receipt.account?.billingName || receipt.account?.email || 'N/A'}
           </Link>
-          <p className="text-sm text-gray-500">{receipt.accountId?.uid}</p>
         </div>
       )
     },
     {
-      key: 'services',
-      header: 'Servicios',
+      key: 'paymentMethod',
+      header: 'Pago',
+      render: (receipt) => {
+        if (!receipt.paymentMethod) {
+          return <span className="text-gray-400">-</span>
+        }
+
+        const paymentType = receipt.paymentMethod.type?.toLowerCase()
+
+        if (paymentType === 'mercado_pago') {
+          return (
+            <Image
+              src="/images/payment-methods/mercado_pago.svg"
+              alt="MercadoPago"
+              width={80}
+              height={24}
+              className="h-6 w-auto"
+            />
+          )
+        }
+
+        if (paymentType === 'stripe') {
+          return (
+            <Image
+              src="/images/payment-methods/stripe.svg"
+              alt="Stripe"
+              width={50}
+              height={24}
+              className="h-6 w-auto"
+            />
+          )
+        }
+
+        return <span className="text-gray-700">{receipt.paymentMethod.name}</span>
+      }
+    },
+    {
+      key: 'tokens',
+      header: 'Tokens',
       render: (receipt) => (
-        <div className="flex flex-wrap gap-1">
-          {receipt.searches?.slice(0, 3).map((s, i) => (
-            <Badge key={i} variant="info" className="text-xs">
-              {ServiceLabels[s.serviceType]} x{s.quantity}
-            </Badge>
-          ))}
-          {receipt.searches?.length > 3 && (
-            <Badge variant="gray" className="text-xs">
-              +{receipt.searches.length - 3}
-            </Badge>
+        <div>
+          {receipt.tokens ? (
+            <p className="font-medium text-gray-900">
+              {receipt.tokens.quantity.toLocaleString()}
+            </p>
+          ) : (
+            <span className="text-gray-400">-</span>
           )}
         </div>
       )
+    },
+    {
+      key: 'subtotal',
+      header: 'Subtotal',
+      render: (receipt) => (
+        <p className="text-gray-600">
+          {formatCurrency(receipt.subtotal, receipt.currency)}
+        </p>
+      )
+    },
+    {
+      key: 'discounts',
+      header: 'Descuentos',
+      render: (receipt) => {
+        const hasDiscountCode = receipt.discountCode
+        const hasBulkDiscount = receipt.bulkDiscount
+        const discountAmount = calculateDiscountAmount(receipt)
+
+        if (!hasDiscountCode && !hasBulkDiscount && discountAmount <= 0) {
+          return <span className="text-gray-400">-</span>
+        }
+
+        const discountCount = [hasDiscountCode, hasBulkDiscount].filter(Boolean).length
+
+        return (
+          <div
+            ref={(el) => {
+              if (el) discountButtonRefs.current.set(receipt.uid, el)
+            }}
+            className="relative"
+            onMouseEnter={() => handleDiscountHover(receipt.uid)}
+            onMouseLeave={handleDiscountLeave}
+          >
+            <div className="flex items-center gap-1.5 cursor-pointer">
+              <i className="ki-duotone ki-discount text-green-500">
+                <span className="path1"></span>
+                <span className="path2"></span>
+              </i>
+              <span className="font-medium text-green-600">
+                -{formatCurrency(discountAmount, receipt.currency)}
+              </span>
+              {discountCount > 1 && (
+                <span className="text-xs text-gray-400">({discountCount})</span>
+              )}
+            </div>
+          </div>
+        )
+      }
     },
     {
       key: 'total',
       header: 'Total',
       render: (receipt) => (
-        <div>
-          <p className="font-semibold text-gray-900">
-            ${receipt.total.toLocaleString()} {receipt.currency}
-          </p>
-          {receipt.currency !== 'USD' && (
-            <p className="text-sm text-gray-500">${receipt.totalUSD.toFixed(2)} USD</p>
-          )}
-        </div>
+        <p className="font-semibold text-gray-900">
+          {formatCurrency(receipt.total, receipt.currency)}
+        </p>
       )
     },
     {
@@ -136,16 +316,42 @@ export default function ReceiptsPage() {
       header: 'Estado',
       render: (receipt) => (
         <Badge variant={getStatusVariant(receipt.status) as 'success' | 'warning' | 'info' | 'danger' | 'gray'}>
-          {receipt.status}
+          {getStatusLabel(receipt.status)}
         </Badge>
       )
     },
     {
-      key: 'createdAt',
-      header: 'Fecha',
+      key: 'invoice',
+      header: 'Factura',
+      render: (receipt) => {
+        if (!receipt.invoice) {
+          return <span className="text-gray-400">-</span>
+        }
+        return (
+          <Link
+            href={`/billing/invoices/${receipt.invoice.id}`}
+            className="text-primary hover:underline text-sm"
+          >
+            {receipt.invoice.number || receipt.invoice.uid}
+          </Link>
+        )
+      }
+    },
+    {
+      key: 'expiredAt',
+      header: 'Vencimiento',
       render: (receipt) => (
         <span className="text-gray-500 text-sm">
-          {formatDate(receipt.createdAt)}
+          {receipt.expiredAt ? formatDateTime(receipt.expiredAt) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'createdAt',
+      header: 'Creado',
+      render: (receipt) => (
+        <span className="text-gray-500 text-sm">
+          {formatDateTime(receipt.createdAt)}
         </span>
       )
     }
@@ -157,7 +363,7 @@ export default function ReceiptsPage() {
       label: 'Estado',
       type: 'select',
       placeholder: 'Todos',
-      options: Object.values(ReceiptStatus).map((s) => ({ value: s, label: s })),
+      options: Object.values(ReceiptStatus).map((s) => ({ value: s, label: getStatusLabel(s) })),
       className: 'w-48'
     }
   ]
@@ -166,49 +372,129 @@ export default function ReceiptsPage() {
     {
       label: 'Ver detalle',
       icon: <ActionIcon icon="eye" className="text-gray-500" />,
-      onClick: (receipt) => router.push(`/billing/receipts/${receipt._id}`)
+      onClick: (receipt) => router.push(`/billing/receipts/${receipt.uid}`)
     }
   ]
 
   const handleFilterSubmit = () => {
     const params = new URLSearchParams()
     if (status) params.set('status', status)
+    if (pageSize !== DEFAULT_PAGE_SIZE) params.set('limit', String(pageSize))
     router.push(`/billing/receipts?${params}`)
   }
 
   const handleFilterClear = () => {
     setStatus('')
+    setPageSize(DEFAULT_PAGE_SIZE)
     router.push('/billing/receipts')
   }
 
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize)
+    const params = new URLSearchParams(searchParams?.toString() || '')
+    params.set('limit', String(newSize))
+    params.set('page', '1')
+    router.push(`/billing/receipts?${params}`)
+  }
+
+  const hoveredReceipt = receipts.find(r => r.uid === hoveredDiscount)
+
   return (
-    <DataTable
-      data={receipts}
-      columns={columns}
-      keyExtractor={(receipt) => receipt._id}
-      isLoading={isLoading}
-      pagination={pagination}
-      basePath="/billing/receipts"
-      filters={filters}
-      filterValues={{ status }}
-      onFilterChange={(key, value) => {
-        if (key === 'status') setStatus(value)
-      }}
-      onFilterSubmit={handleFilterSubmit}
-      onFilterClear={handleFilterClear}
-      actions={actions}
-      title="Recibos"
-      subtitle="Historial de recibos de pago"
-      headerAction={
-        <Link href="/billing" className="btn-outline flex items-center gap-2">
-          <i className="ki-duotone ki-arrow-left text-lg">
-            <span className="path1"></span>
-            <span className="path2"></span>
-          </i>
-          Volver
-        </Link>
-      }
-      emptyMessage="No se encontraron recibos"
-    />
+    <>
+      <DataTable
+        data={receipts}
+        columns={columns}
+        keyExtractor={(receipt) => receipt.uid}
+        isLoading={isLoading}
+        pagination={pagination}
+        basePath="/billing/receipts"
+        onPageSizeChange={handlePageSizeChange}
+        filters={filters}
+        filterValues={{ status }}
+        onFilterChange={(key, value) => {
+          if (key === 'status') setStatus(value)
+        }}
+        onFilterSubmit={handleFilterSubmit}
+        onFilterClear={handleFilterClear}
+        selectable
+        selectedItems={selectedReceipts}
+        onSelectionChange={setSelectedReceipts}
+        actions={actions}
+        title="Recibos"
+        subtitle="Historial de recibos de pago"
+        emptyMessage="No se encontraron recibos"
+      />
+
+      {/* Discount Popup Portal */}
+      {hoveredDiscount && hoveredReceipt && discountPopupPosition && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed w-64 bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-100 py-2 z-[99999] animate-fade-in"
+          style={{
+            top: discountPopupPosition.showAbove ? 'auto' : `${discountPopupPosition.top}px`,
+            bottom: discountPopupPosition.showAbove ? `${window.innerHeight - discountPopupPosition.top + 8}px` : 'auto',
+            left: `${discountPopupPosition.left}px`,
+          }}
+          onMouseEnter={() => setHoveredDiscount(hoveredDiscount)}
+          onMouseLeave={handleDiscountLeave}
+        >
+          <div className="px-4 pb-2 border-b border-gray-100">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Descuentos aplicados</span>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {hoveredReceipt.discountCode && (
+              <div className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">Código</span>
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                    -{hoveredReceipt.discountCode.value}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {hoveredReceipt.discountCode.code}
+                  {hoveredReceipt.discountCode.name && ` - ${hoveredReceipt.discountCode.name}`}
+                </div>
+              </div>
+            )}
+            {hoveredReceipt.bulkDiscount && (() => {
+              // Encontrar el tier aplicado según la cantidad de tokens
+              const tokenQty = hoveredReceipt.tokens?.quantity || 0
+              const appliedTier = hoveredReceipt.bulkDiscount.tiers
+                ?.filter(t => tokenQty >= t.minTokens)
+                .sort((a, b) => b.minTokens - a.minTokens)[0]
+
+              return (
+                <div className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">Volumen</span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                      {appliedTier ? `-${appliedTier.discountPercentage}%` : 'Aplicado'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {hoveredReceipt.bulkDiscount.name}
+                    {appliedTier?.label && ` - ${appliedTier.label}`}
+                  </div>
+                </div>
+              )
+            })()}
+            {/* Si hay descuento pero no hay código ni bulk vinculado */}
+            {!hoveredReceipt.discountCode && !hoveredReceipt.bulkDiscount && hoveredReceipt.subtotal > hoveredReceipt.total && (
+              <div className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">Descuento</span>
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                    -{Math.round((1 - hoveredReceipt.total / hoveredReceipt.subtotal) * 100)}%
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  Descuento por paquete de tokens
+                </div>
+              </div>
+            )}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

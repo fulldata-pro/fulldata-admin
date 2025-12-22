@@ -1,7 +1,10 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
 import { addUidMiddleware } from '../helpers/uid-middleware'
 import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
-import { MovementTypes, MovementStatus } from '@/lib/constants'
+import { MovementType, MovementStatus } from '@/lib/constants/movement.constants'
+
+// Re-export para mantener compatibilidad con imports existentes
+export { MovementType, MovementStatus }
 
 export interface ISearchBalance {
   quantity: number
@@ -15,24 +18,38 @@ export interface IMovementSearch {
 }
 
 export interface IMovementMetadata {
-  paymentProvider?: string
-  preferenceId?: string | null
-  amount?: number
-  currency?: string
-  items?: Array<{
-    id: string
-    title: string
-    description?: string
-    quantity: number
-    unitPrice: number
-  }>
+  // Token amount (positivo para compras/bonus, negativo para consumos)
+  tokenAmount?: number
+
+  // Tipo de servicio (solo para consumos: PEOPLE, COMPANIES, etc.)
+  serviceType?: string
+
+  // General
+  description?: string
+  ipAddress?: string
+  userAgent?: string
+
+  // Payment/discount info - Desglose completo
+  discountCode?: string           // Código de descuento usado (si aplica)
+  discountAmount?: number          // Monto TOTAL descontado (suma de todos los descuentos)
+  originalPrice?: number           // Precio original sin descuentos
+
+  // Desglose de descuentos aplicados
+  bulkDiscountAmount?: number      // Monto descontado por volumen/cantidad
+  bulkDiscountPercentage?: number  // Porcentaje de descuento por volumen
+  codeDiscountAmount?: number      // Monto descontado por código
+  codeDiscountPercentage?: number  // Porcentaje de descuento por código
+
+  // Payment info
+  paymentId?: string
+  completedAt?: Date
 }
 
 export interface IMovement extends Document {
   id: number
   uid: string
-  type: string
-  status: string
+  type: MovementType
+  status: MovementStatus
   searches: IMovementSearch[]
   requestId?: Types.ObjectId[]
   receiptId?: Types.ObjectId
@@ -65,19 +82,31 @@ const MovementSearchSchema = new Schema<IMovementSearch>(
 
 const MovementMetadataSchema = new Schema<IMovementMetadata>(
   {
-    paymentProvider: { type: String },
-    preferenceId: { type: String },
-    amount: { type: Number },
-    currency: { type: String },
-    items: [
-      {
-        id: { type: String },
-        title: { type: String },
-        description: { type: String },
-        quantity: { type: Number },
-        unitPrice: { type: Number },
-      },
-    ],
+    // Token amount (positivo para compras/bonus, negativo para consumos)
+    tokenAmount: { type: Number },
+
+    // Tipo de servicio (solo para consumos)
+    serviceType: { type: String },
+
+    // General
+    description: { type: String },
+    ipAddress: { type: String },
+    userAgent: { type: String },
+
+    // Payment/discount info - Desglose completo
+    discountCode: { type: String },
+    discountAmount: { type: Number },
+    originalPrice: { type: Number },
+
+    // Desglose de descuentos aplicados
+    bulkDiscountAmount: { type: Number },
+    bulkDiscountPercentage: { type: Number },
+    codeDiscountAmount: { type: Number },
+    codeDiscountPercentage: { type: Number },
+
+    // Payment info
+    paymentId: { type: String },
+    completedAt: { type: Date },
   },
   { _id: false }
 )
@@ -88,7 +117,7 @@ const MovementSchema = new Schema<IMovement>(
     uid: { type: String, unique: true },
     type: {
       type: String,
-      enum: Object.values(MovementTypes),
+      enum: Object.values(MovementType),
       required: true,
     },
     status: {

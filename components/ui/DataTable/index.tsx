@@ -1,7 +1,10 @@
 'use client'
 
-import { ReactNode, useState, useEffect, useRef } from 'react'
+import { ReactNode, useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Checkbox } from '@/components/ui/Checkbox'
+import { Select } from '@/components/ui/Select'
 
 // Types
 export interface Column<T> {
@@ -48,6 +51,8 @@ export interface DataTableProps<T> {
   // Pagination
   pagination?: Pagination | null
   basePath: string
+  pageSizeOptions?: number[]
+  onPageSizeChange?: (size: number) => void
 
   // Filters
   filters?: FilterConfig[]
@@ -56,6 +61,11 @@ export interface DataTableProps<T> {
   onFilterSubmit?: () => void
   onFilterClear?: () => void
   showFilters?: boolean
+
+  // Selection
+  selectable?: boolean
+  selectedItems?: string[]
+  onSelectionChange?: (selectedKeys: string[]) => void
 
   // Actions
   actions?: ActionMenuItem<T>[]
@@ -86,12 +96,17 @@ export function DataTable<T>({
   isLoading = false,
   pagination,
   basePath,
+  pageSizeOptions = [10, 25, 50, 100],
+  onPageSizeChange,
   filters,
   filterValues = {},
   onFilterChange,
   onFilterSubmit,
   onFilterClear,
   showFilters = true,
+  selectable = false,
+  selectedItems = [],
+  onSelectionChange,
   actions,
   onRowClick,
   emptyMessage = 'No se encontraron resultados',
@@ -108,18 +123,45 @@ export function DataTable<T>({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; showAbove: boolean } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const actionButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setOpenDropdown(null)
+        setDropdownPosition(null)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  const handleOpenDropdown = useCallback((key: string) => {
+    if (openDropdown === key) {
+      setOpenDropdown(null)
+      setDropdownPosition(null)
+      return
+    }
+
+    const buttonEl = actionButtonRefs.current.get(key)
+    if (buttonEl) {
+      const rect = buttonEl.getBoundingClientRect()
+      const dropdownHeight = 120 // Approximate height for 2 actions
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const showAbove = spaceBelow < dropdownHeight && spaceAbove > dropdownHeight
+
+      setDropdownPosition({
+        top: showAbove ? rect.top : rect.bottom + 4,
+        left: rect.right - 224, // 224 = w-56 (14rem)
+        showAbove
+      })
+    }
+    setOpenDropdown(key)
+  }, [openDropdown])
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams?.toString() || '')
@@ -132,7 +174,30 @@ export function DataTable<T>({
     onFilterSubmit?.()
   }
 
-  const totalColumns = columns.length + (actions ? 1 : 0)
+  // Selection handlers
+  const allKeys = data.map(keyExtractor)
+  const isAllSelected = selectable && data.length > 0 && allKeys.every((key) => selectedItems.includes(key))
+  const isSomeSelected = selectable && selectedItems.length > 0 && !isAllSelected
+
+  const handleSelectAll = () => {
+    if (!onSelectionChange) return
+    if (isAllSelected) {
+      onSelectionChange([])
+    } else {
+      onSelectionChange(allKeys)
+    }
+  }
+
+  const handleSelectItem = (key: string) => {
+    if (!onSelectionChange) return
+    if (selectedItems.includes(key)) {
+      onSelectionChange(selectedItems.filter((k) => k !== key))
+    } else {
+      onSelectionChange([...selectedItems, key])
+    }
+  }
+
+  const totalColumns = columns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)
   const cellPadding = compact ? 'px-4 py-3' : 'px-6 py-4'
   const headerPadding = compact ? 'px-4 py-2.5' : 'px-6 py-3'
 
@@ -211,15 +276,25 @@ export function DataTable<T>({
       )}
 
       {/* Table */}
-      <div className={`${glass ? 'bg-white/80 backdrop-blur-xl border border-white/20' : 'bg-white border border-gray-200'} rounded-2xl shadow-sm overflow-hidden`}>
-        <div className={openDropdown ? 'overflow-visible' : 'overflow-x-auto'}>
-          <table className="min-w-full">
-            <thead className={`${glass ? 'bg-gradient-to-r from-gray-50/80 to-gray-100/80' : 'bg-gray-50'}`}>
+      <div className={`${glass ? 'bg-white/60 backdrop-blur-sm border border-slate-200/40' : 'bg-white border border-gray-200'} rounded-2xl shadow-sm overflow-hidden`}>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className={`${glass ? 'bg-slate-50/80 backdrop-blur-sm' : 'bg-gray-50'}`}>
               <tr>
+                {selectable && (
+                  <th className={`${headerPadding} w-12`}>
+                    <Checkbox
+                      checked={isAllSelected}
+                      indeterminate={isSomeSelected}
+                      onChange={() => handleSelectAll()}
+                      size="sm"
+                    />
+                  </th>
+                )}
                 {columns.map((column) => (
                   <th
                     key={column.key}
-                    className={`${headerPadding} text-left text-xs font-semibold text-gray-500 uppercase tracking-wider ${column.headerClassName || ''}`}
+                    className={`${headerPadding} text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${column.headerClassName || ''}`}
                   >
                     {column.header}
                   </th>
@@ -227,7 +302,7 @@ export function DataTable<T>({
                 {actions && <th className={`${headerPadding} w-16`}></th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100/80">
+            <tbody className="bg-white/80 backdrop-blur-sm divide-y divide-slate-200/40">
               {isLoading ? (
                 <tr>
                   <td colSpan={totalColumns} className={`${cellPadding} text-center py-16`}>
@@ -259,16 +334,28 @@ export function DataTable<T>({
               ) : (
                 data.map((item, index) => {
                   const key = keyExtractor(item)
+                  const isSelected = selectedItems.includes(key)
                   return (
                     <tr
                       key={key}
                       className={`
-                        transition-colors duration-150
+                        transition-all duration-200
                         ${onRowClick ? 'cursor-pointer' : ''}
-                        ${glass ? 'hover:bg-primary/[0.02]' : 'hover:bg-gray-50'}
+                        ${glass ? 'hover:bg-slate-50/40' : 'hover:bg-gray-50'}
+                        ${isSelected ? 'bg-primary/5' : ''}
+                        ${index < data.length - 1 ? 'border-b border-slate-200/30' : ''}
                       `}
                       onClick={() => onRowClick?.(item)}
                     >
+                      {selectable && (
+                        <td className={`${cellPadding} w-12`}>
+                          <Checkbox
+                            checked={isSelected}
+                            onChange={() => handleSelectItem(key)}
+                            size="sm"
+                          />
+                        </td>
+                      )}
                       {columns.map((column) => (
                         <td
                           key={column.key}
@@ -278,40 +365,16 @@ export function DataTable<T>({
                         </td>
                       ))}
                       {actions && (
-                        <td className={`${cellPadding} relative`} onClick={(e) => e.stopPropagation()}>
-                          <div className="relative" ref={openDropdown === key ? dropdownRef : null}>
-                            <button
-                              onClick={() => setOpenDropdown(openDropdown === key ? null : key)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <i className="ki-duotone ki-dots-vertical text-xl text-gray-400">
-                                <span className="path1"></span>
-                                <span className="path2"></span>
-                                <span className="path3"></span>
-                              </i>
-                            </button>
-                            {openDropdown === key && (
-                              <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 animate-fade-in">
-                                {actions
-                                  .filter((action) => !action.show || action.show(item))
-                                  .map((action, actionIndex) => (
-                                    <button
-                                      key={actionIndex}
-                                      onClick={() => {
-                                        action.onClick(item)
-                                        setOpenDropdown(null)
-                                      }}
-                                      className={`w-full flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
-                                        action.className || 'text-gray-700 hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      {action.icon}
-                                      {action.label}
-                                    </button>
-                                  ))}
-                              </div>
-                            )}
-                          </div>
+                        <td className={`${cellPadding}`} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            ref={(el) => {
+                              if (el) actionButtonRefs.current.set(key, el)
+                            }}
+                            onClick={() => handleOpenDropdown(key)}
+                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <i className="ki-solid ki-dots-vertical text-lg"></i>
+                          </button>
                         </td>
                       )}
                     </tr>
@@ -323,67 +386,130 @@ export function DataTable<T>({
         </div>
 
         {/* Pagination */}
-        {pagination && pagination.pages > 1 && (
+        {pagination && (pagination.pages > 1 || onPageSizeChange) && (
           <div className={`flex items-center justify-between px-6 py-4 border-t ${glass ? 'border-gray-100/50 bg-gray-50/30' : 'border-gray-100'}`}>
-            <p className="text-sm text-gray-500">
-              Mostrando <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> a{' '}
-              <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de{' '}
-              <span className="font-medium">{pagination.total}</span> resultados
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => handlePageChange(pagination.page - 1)}
-                disabled={pagination.page === 1}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <i className="ki-duotone ki-arrow-left text-base">
-                  <span className="path1"></span>
-                  <span className="path2"></span>
-                </i>
-                Anterior
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
-                  let pageNum: number
-                  if (pagination.pages <= 5) {
-                    pageNum = i + 1
-                  } else if (pagination.page <= 3) {
-                    pageNum = i + 1
-                  } else if (pagination.page >= pagination.pages - 2) {
-                    pageNum = pagination.pages - 4 + i
-                  } else {
-                    pageNum = pagination.page - 2 + i
-                  }
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
-                        pagination.page === pageNum
-                          ? 'bg-primary text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                })}
-              </div>
-              <button
-                onClick={() => handlePageChange(pagination.page + 1)}
-                disabled={pagination.page === pagination.pages}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Siguiente
-                <i className="ki-duotone ki-arrow-right text-base">
-                  <span className="path1"></span>
-                  <span className="path2"></span>
-                </i>
-              </button>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-gray-500">
+                Mostrando <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> a{' '}
+                <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de{' '}
+                <span className="font-medium">{pagination.total}</span> resultados
+              </p>
+              {onPageSizeChange && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">Mostrar</span>
+                  <Select
+                    value={String(pagination.limit)}
+                    onChange={(value) => onPageSizeChange(Number(value))}
+                    options={pageSizeOptions.map((size) => ({
+                      value: String(size),
+                      label: String(size)
+                    }))}
+                    size="xs"
+                    fullWidth={false}
+                    className="w-16"
+                  />
+                  <span className="text-sm text-gray-500">por página</span>
+                </div>
+              )}
             </div>
+            {pagination.pages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <i className="ki-duotone ki-arrow-left text-base">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                  </i>
+                  Anterior
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
+                    let pageNum: number
+                    if (pagination.pages <= 5) {
+                      pageNum = i + 1
+                    } else if (pagination.page <= 3) {
+                      pageNum = i + 1
+                    } else if (pagination.page >= pagination.pages - 2) {
+                      pageNum = pagination.pages - 4 + i
+                    } else {
+                      pageNum = pagination.page - 2 + i
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => handlePageChange(pageNum)}
+                        className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
+                          pagination.page === pageNum
+                            ? 'bg-primary text-white'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={() => handlePageChange(pagination.page + 1)}
+                  disabled={pagination.page === pagination.pages}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                  <i className="ki-duotone ki-arrow-right text-base">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                  </i>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Actions Dropdown Portal */}
+      {openDropdown && dropdownPosition && actions && typeof window !== 'undefined' && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed w-56 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-[99999] animate-fade-in"
+          style={{
+            top: dropdownPosition.showAbove ? 'auto' : `${dropdownPosition.top}px`,
+            bottom: dropdownPosition.showAbove ? `${window.innerHeight - dropdownPosition.top + 4}px` : 'auto',
+            left: `${dropdownPosition.left}px`,
+          }}
+        >
+          {actions
+            .filter((action) => {
+              const item = data.find((d) => keyExtractor(d) === openDropdown)
+              return item && (!action.show || action.show(item))
+            })
+            .map((action, actionIndex, filteredActions) => {
+              const item = data.find((d) => keyExtractor(d) === openDropdown)
+              if (!item) return null
+              return (
+                <button
+                  key={actionIndex}
+                  onClick={() => {
+                    action.onClick(item)
+                    setOpenDropdown(null)
+                    setDropdownPosition(null)
+                  }}
+                  className={`w-full text-left flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                    actionIndex < filteredActions.length - 1 ? 'border-b border-gray-100' : ''
+                  } ${
+                    action.className || 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-lg">{action.icon}</span>
+                  {action.label}
+                </button>
+              )
+            })}
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

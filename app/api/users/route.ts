@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
     const search = searchParams.get('search') || ''
-    const authMethod = searchParams.get('authMethod') || ''
+    const provider = searchParams.get('provider') || ''
 
     const query: Record<string, unknown> = { deletedAt: null }
 
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    if (authMethod) {
-      query.authMethod = authMethod
+    if (provider) {
+      query.provider = provider
     }
 
     const [users, total] = await Promise.all([

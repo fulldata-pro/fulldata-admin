@@ -38,13 +38,26 @@ interface SearchBalance {
   totalConsumed: number
 }
 
+interface AccountBenefit {
+  benefit: Benefit
+  appliedAt: string
+  expiresAt?: string
+}
+
+interface ServiceConfig {
+  maxRequestsPerDay?: number
+  maxRequestsPerMonth?: number
+  webhookEnabled?: boolean
+  apiEnabled?: boolean
+}
+
 interface Account {
   _id: string
   uid: string
-  email: string
-  phone?: string
+  name: string
+  avatar?: string
   status: string
-  billing: {
+  billing?: {
     name?: string
     taxId?: string
     type?: string
@@ -54,16 +67,17 @@ interface Account {
     activity?: string
     verifiedAt?: string
   }
-  maxRequestsPerDay?: number
-  maxRequestsPerMonth?: number
-  webhookEnabled: boolean
-  apiEnabled: boolean
-  users: User[]
-  benefits: Benefit[]
+  serviceConfig?: ServiceConfig
+  users: {
+    user: User
+    role: string
+    addedAt: string
+  }[]
+  benefits: AccountBenefit[]
   referralCode?: string
-  referralBalance: number
+  referralBalance?: number
   createdAt: string
-  updatedAt: string
+  updatedAt?: string
 }
 
 interface Balance {
@@ -299,14 +313,14 @@ export default function AccountDetailPage() {
             {/* Account Info */}
             <div className="flex items-start gap-4">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                {(account.billing?.name || account.email).charAt(0).toUpperCase()}
+                {(account.billing?.name || account.name || account.uid).charAt(0).toUpperCase()}
               </div>
               <div>
                 <div className="flex items-center gap-3 mb-1">
-                  <h1 className="text-2xl font-bold">{account.billing?.name || account.uid}</h1>
+                  <h1 className="text-2xl font-bold">{account.billing?.name || account.name}</h1>
                   <span className={`badge ${statusConfig.badge}`}>{statusConfig.label}</span>
                 </div>
-                <p className="text-gray-300 mb-2">{account.email}</p>
+                <p className="text-gray-400 text-sm mb-2">{account.uid}</p>
                 <div className="flex items-center gap-4 text-sm text-gray-400">
                   <span className="flex items-center gap-1">
                     <i className="ki-duotone ki-calendar text-base">
@@ -315,15 +329,6 @@ export default function AccountDetailPage() {
                     </i>
                     Cliente desde {formatDate(account.createdAt)}
                   </span>
-                  {account.phone && (
-                    <span className="flex items-center gap-1">
-                      <i className="ki-duotone ki-phone text-base">
-                        <span className="path1"></span>
-                        <span className="path2"></span>
-                      </i>
-                      {account.phone}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
@@ -365,11 +370,11 @@ export default function AccountDetailPage() {
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Balance Referidos</p>
-              <p className="text-2xl font-bold">${account.referralBalance.toLocaleString()}</p>
+              <p className="text-2xl font-bold">${(account.referralBalance || 0).toLocaleString()}</p>
             </div>
             <div>
               <p className="text-gray-400 text-sm mb-1">Beneficios Activos</p>
-              <p className="text-2xl font-bold">{account.benefits?.filter((b) => b.isEnabled).length || 0}</p>
+              <p className="text-2xl font-bold">{account.benefits?.filter((b) => b.benefit.isEnabled).length || 0}</p>
             </div>
           </div>
         </div>
@@ -436,26 +441,6 @@ export default function AccountDetailPage() {
               </div>
               <div className="flex justify-between items-center py-2 border-b border-gray-100">
                 <dt className="text-gray-500 flex items-center gap-2">
-                  <i className="ki-duotone ki-sms text-base">
-                    <span className="path1"></span>
-                    <span className="path2"></span>
-                  </i>
-                  Email
-                </dt>
-                <dd className="font-medium">{account.email}</dd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <dt className="text-gray-500 flex items-center gap-2">
-                  <i className="ki-duotone ki-phone text-base">
-                    <span className="path1"></span>
-                    <span className="path2"></span>
-                  </i>
-                  Telefono
-                </dt>
-                <dd className="font-medium">{account.phone || <span className="text-gray-400">No especificado</span>}</dd>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <dt className="text-gray-500 flex items-center gap-2">
                   <i className="ki-duotone ki-share text-base">
                     <span className="path1"></span>
                     <span className="path2"></span>
@@ -482,7 +467,7 @@ export default function AccountDetailPage() {
                   </i>
                   Balance Referidos
                 </dt>
-                <dd className="font-bold text-lg text-green-600">${account.referralBalance.toLocaleString()}</dd>
+                <dd className="font-bold text-lg text-green-600">${(account.referralBalance || 0).toLocaleString()}</dd>
               </div>
               <div className="flex justify-between items-center py-2">
                 <dt className="text-gray-500 flex items-center gap-2">
@@ -580,12 +565,12 @@ export default function AccountDetailPage() {
               <div className="p-4 bg-gray-50 rounded-xl text-center">
                 <div
                   className={`w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center ${
-                    account.apiEnabled ? 'bg-green-100' : 'bg-gray-200'
+                    account.serviceConfig?.apiEnabled ? 'bg-green-100' : 'bg-gray-200'
                   }`}
                 >
                   <i
                     className={`ki-duotone ki-toggle-on-circle text-2xl ${
-                      account.apiEnabled ? 'text-green-600' : 'text-gray-400'
+                      account.serviceConfig?.apiEnabled ? 'text-green-600' : 'text-gray-400'
                     }`}
                   >
                     <span className="path1"></span>
@@ -593,19 +578,19 @@ export default function AccountDetailPage() {
                   </i>
                 </div>
                 <p className="text-sm text-gray-500 mb-1">API</p>
-                <p className={`font-semibold ${account.apiEnabled ? 'text-green-600' : 'text-gray-500'}`}>
-                  {account.apiEnabled ? 'Habilitada' : 'Deshabilitada'}
+                <p className={`font-semibold ${account.serviceConfig?.apiEnabled ? 'text-green-600' : 'text-gray-500'}`}>
+                  {account.serviceConfig?.apiEnabled ? 'Habilitada' : 'Deshabilitada'}
                 </p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl text-center">
                 <div
                   className={`w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center ${
-                    account.webhookEnabled ? 'bg-green-100' : 'bg-gray-200'
+                    account.serviceConfig?.webhookEnabled ? 'bg-green-100' : 'bg-gray-200'
                   }`}
                 >
                   <i
                     className={`ki-duotone ki-notification-on text-2xl ${
-                      account.webhookEnabled ? 'text-green-600' : 'text-gray-400'
+                      account.serviceConfig?.webhookEnabled ? 'text-green-600' : 'text-gray-400'
                     }`}
                   >
                     <span className="path1"></span>
@@ -616,8 +601,8 @@ export default function AccountDetailPage() {
                   </i>
                 </div>
                 <p className="text-sm text-gray-500 mb-1">Webhooks</p>
-                <p className={`font-semibold ${account.webhookEnabled ? 'text-green-600' : 'text-gray-500'}`}>
-                  {account.webhookEnabled ? 'Habilitados' : 'Deshabilitados'}
+                <p className={`font-semibold ${account.serviceConfig?.webhookEnabled ? 'text-green-600' : 'text-gray-500'}`}>
+                  {account.serviceConfig?.webhookEnabled ? 'Habilitados' : 'Deshabilitados'}
                 </p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl text-center">
@@ -628,7 +613,7 @@ export default function AccountDetailPage() {
                   </i>
                 </div>
                 <p className="text-sm text-gray-500 mb-1">Requests/Dia</p>
-                <p className="font-bold text-xl text-secondary">{(account.maxRequestsPerDay || 100).toLocaleString()}</p>
+                <p className="font-bold text-xl text-secondary">{(account.serviceConfig?.maxRequestsPerDay || 100).toLocaleString()}</p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl text-center">
                 <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center bg-blue-100">
@@ -642,7 +627,7 @@ export default function AccountDetailPage() {
                   </i>
                 </div>
                 <p className="text-sm text-gray-500 mb-1">Requests/Mes</p>
-                <p className="font-bold text-xl text-secondary">{(account.maxRequestsPerMonth || 1000).toLocaleString()}</p>
+                <p className="font-bold text-xl text-secondary">{(account.serviceConfig?.maxRequestsPerMonth || 1000).toLocaleString()}</p>
               </div>
             </div>
           </div>
@@ -678,26 +663,26 @@ export default function AccountDetailPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {account.users.map((user) => (
-                      <tr key={user._id} className="hover:bg-gray-50 transition-colors">
+                    {account.users.map((accountUser) => (
+                      <tr key={accountUser.user._id} className="hover:bg-gray-50 transition-colors">
                         <td className="table-cell">
                           <div className="flex items-center gap-3">
-                            {user.avatar ? (
+                            {accountUser.user.avatar ? (
                               <img
-                                src={user.avatar}
-                                alt={user.firstName}
+                                src={accountUser.user.avatar}
+                                alt={accountUser.user.firstName}
                                 className="w-10 h-10 rounded-full object-cover"
                               />
                             ) : (
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-semibold">
-                                {user.firstName?.charAt(0).toUpperCase()}
+                                {accountUser.user.firstName?.charAt(0).toUpperCase()}
                               </div>
                             )}
                             <div>
                               <p className="font-medium text-secondary">
-                                {user.firstName} {user.lastName}
+                                {accountUser.user.firstName} {accountUser.user.lastName}
                               </p>
-                              <p className="text-xs text-gray-500 font-mono">{user.uid}</p>
+                              <p className="text-xs text-gray-500 font-mono">{accountUser.user.uid}</p>
                             </div>
                           </div>
                         </td>
@@ -708,15 +693,15 @@ export default function AccountDetailPage() {
                                 <span className="path1"></span>
                                 <span className="path2"></span>
                               </i>
-                              {user.email}
+                              {accountUser.user.email}
                             </p>
-                            {user.phone && (
+                            {accountUser.user.phone && (
                               <p className="text-sm text-gray-500 flex items-center gap-2 mt-1">
                                 <i className="ki-duotone ki-phone text-gray-400">
                                   <span className="path1"></span>
                                   <span className="path2"></span>
                                 </i>
-                                {user.phone}
+                                {accountUser.user.phone}
                               </p>
                             )}
                           </div>
@@ -724,7 +709,7 @@ export default function AccountDetailPage() {
                         <td className="table-cell">
                           <div className="flex flex-col gap-2">
                             <div className="flex items-center gap-2">
-                              {user.emailVerifiedAt ? (
+                              {accountUser.user.emailVerifiedAt ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 text-sm">
                                   <i className="ki-duotone ki-verify text-base">
                                     <span className="path1"></span>
@@ -743,7 +728,7 @@ export default function AccountDetailPage() {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
-                              {user.phoneVerifiedAt ? (
+                              {accountUser.user.phoneVerifiedAt ? (
                                 <span className="inline-flex items-center gap-1 text-green-600 text-sm">
                                   <i className="ki-duotone ki-verify text-base">
                                     <span className="path1"></span>
@@ -767,7 +752,7 @@ export default function AccountDetailPage() {
                           <div className="relative">
                             <button
                               onClick={() =>
-                                setUserActionDropdown(userActionDropdown === user._id ? null : user._id)
+                                setUserActionDropdown(userActionDropdown === accountUser.user._id ? null : accountUser.user._id)
                               }
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             >
@@ -777,10 +762,10 @@ export default function AccountDetailPage() {
                                 <span className="path3"></span>
                               </i>
                             </button>
-                            {userActionDropdown === user._id && (
+                            {userActionDropdown === accountUser.user._id && (
                               <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1 z-50">
                                 <button
-                                  onClick={() => handleRemoveUser(user._id)}
+                                  onClick={() => handleRemoveUser(accountUser.user._id)}
                                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                                 >
                                   <i className="ki-duotone ki-trash text-xl">
@@ -946,8 +931,8 @@ export default function AccountDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {account.benefits.map((benefit) => (
-                    <tr key={benefit._id} className="hover:bg-gray-50 transition-colors">
+                  {account.benefits.map((accountBenefit) => (
+                    <tr key={accountBenefit.benefit._id} className="hover:bg-gray-50 transition-colors">
                       <td className="table-cell">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
@@ -958,32 +943,32 @@ export default function AccountDetailPage() {
                               <span className="path4"></span>
                             </i>
                           </div>
-                          <span className="font-medium">{benefit.name}</span>
+                          <span className="font-medium">{accountBenefit.benefit.name}</span>
                         </div>
                       </td>
                       <td className="table-cell">
-                        <code className="px-3 py-1.5 bg-gray-100 rounded-lg text-sm font-mono">{benefit.code}</code>
+                        <code className="px-3 py-1.5 bg-gray-100 rounded-lg text-sm font-mono">{accountBenefit.benefit.code}</code>
                       </td>
                       <td className="table-cell">
                         <div className="flex items-center gap-2">
-                          {benefit.advantage.type === 'PERCENTAGE' && (
+                          {accountBenefit.benefit.advantage.type === 'PERCENTAGE' && (
                             <>
-                              <span className="text-2xl font-bold text-green-600">{benefit.advantage.value}%</span>
+                              <span className="text-2xl font-bold text-green-600">{accountBenefit.benefit.advantage.value}%</span>
                               <span className="text-gray-500">descuento</span>
                             </>
                           )}
-                          {benefit.advantage.type === 'CREDITS' && (
+                          {accountBenefit.benefit.advantage.type === 'CREDITS' && (
                             <>
                               <span className="text-2xl font-bold text-primary">
-                                {benefit.advantage.value.toLocaleString()}
+                                {accountBenefit.benefit.advantage.value.toLocaleString()}
                               </span>
                               <span className="text-gray-500">creditos</span>
                             </>
                           )}
-                          {benefit.advantage.type !== 'PERCENTAGE' && benefit.advantage.type !== 'CREDITS' && (
+                          {accountBenefit.benefit.advantage.type !== 'PERCENTAGE' && accountBenefit.benefit.advantage.type !== 'CREDITS' && (
                             <>
                               <span className="text-2xl font-bold text-green-600">
-                                ${benefit.advantage.value.toLocaleString()}
+                                ${accountBenefit.benefit.advantage.value.toLocaleString()}
                               </span>
                               <span className="text-gray-500">de descuento</span>
                             </>
@@ -991,7 +976,7 @@ export default function AccountDetailPage() {
                         </div>
                       </td>
                       <td className="table-cell">
-                        {benefit.isEnabled ? (
+                        {accountBenefit.benefit.isEnabled ? (
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-100 text-green-700 text-sm font-medium">
                             <span className="w-2 h-2 rounded-full bg-green-500"></span>
                             Activo

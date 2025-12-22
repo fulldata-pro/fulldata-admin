@@ -34,7 +34,7 @@ const navigation: NavSection[] = [
   {
     title: 'Finanzas',
     items: [
-      { label: 'Facturación', href: '/billing', icon: 'ki-bill' },
+      { label: 'Resumen', href: '/billing', icon: 'ki-chart-pie-simple' },
       { label: 'Recibos', href: '/billing/receipts', icon: 'ki-document' },
       { label: 'Facturas', href: '/billing/invoices', icon: 'ki-file-sheet' },
     ],
@@ -53,10 +53,7 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
-    if (href === '/dashboard') {
-      return pathname === '/dashboard'
-    }
-    return pathname?.startsWith(href) || false
+    return pathname === href
   }
 
   return (

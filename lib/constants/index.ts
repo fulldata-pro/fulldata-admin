@@ -23,6 +23,22 @@ export const AccountStatus = {
 
 export type AccountStatusType = (typeof AccountStatus)[keyof typeof AccountStatus]
 
+/** @deprecated Use AccountBillingType instead */
+export const AccountType = {
+  INDIVIDUAL: 'INDIVIDUAL',
+  BUSINESS: 'BUSINESS',
+} as const
+
+/** @deprecated Use AccountBillingTypeValue instead */
+export type AccountTypeValue = (typeof AccountType)[keyof typeof AccountType]
+
+export const AccountBillingType = {
+  INDIVIDUAL: 'INDIVIDUAL',
+  BUSINESS: 'BUSINESS',
+} as const
+
+export type AccountBillingTypeValue = (typeof AccountBillingType)[keyof typeof AccountBillingType]
+
 export const ServicesType = {
   PEOPLE: 'people',
   COMPANIES: 'companies',
@@ -65,6 +81,13 @@ export const ReceiptStatus = {
 
 export type ReceiptStatusType = (typeof ReceiptStatus)[keyof typeof ReceiptStatus]
 
+// Re-export movement constants from dedicated file
+export { MovementType, MovementStatus, MovementTypeLabel, MovementStatusLabel, isTokenMovement } from './movement.constants'
+
+// Re-export routes
+export { ROUTES } from './routes.constants'
+
+/** @deprecated Use MovementType enum instead */
 export const MovementTypes = {
   EMAIL_VERIFICATION: 'EMAIL_VERIFICATION',
   PHONE_VERIFICATION: 'PHONE_VERIFICATION',
@@ -74,6 +97,12 @@ export const MovementTypes = {
   BUY_SEARCHES: 'BUY_SEARCHES',
   UPDATE_SEARCHES: 'UPDATE_SEARCHES',
   EXPIRED_SEARCHES: 'EXPIRED_SEARCHES',
+  // Token types
+  TOKENS_PURCHASED: 'TOKENS_PURCHASED',
+  TOKENS_CONSUMED: 'TOKENS_CONSUMED',
+  TOKENS_REFUNDED: 'TOKENS_REFUNDED',
+  TOKENS_BONUS: 'TOKENS_BONUS',
+  TOKENS_ADJUSTMENT: 'TOKENS_ADJUSTMENT',
 } as const
 
 export const BenefitAdvantageTypes = {
@@ -101,13 +130,7 @@ export const InvoiceTypes = {
 
 export type InvoiceType = (typeof InvoiceTypes)[keyof typeof InvoiceTypes]
 
-export const MovementStatus = {
-  PENDING: 'PENDING',
-  APPROVED: 'APPROVED',
-  EXPIRED: 'EXPIRED',
-} as const
-
-export type MovementStatusType = (typeof MovementStatus)[keyof typeof MovementStatus]
+export type MovementStatusType = (typeof import('./movement.constants').MovementStatus)[keyof typeof import('./movement.constants').MovementStatus]
 
 export const RequestStatus = {
   PENDING: 'PENDING',

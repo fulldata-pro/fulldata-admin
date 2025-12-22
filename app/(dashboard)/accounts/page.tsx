@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
@@ -21,22 +22,29 @@ interface AccountUser {
 
 interface Account {
   _id: string
+  id: number
   uid: string
-  name?: string
+  name: string
   type?: string
-  email: string
-  phone?: string
   status: string
-  billing: {
+  billing?: {
     name?: string
     taxId?: string
-    email?: string
-    phone?: string
   }
-  apiEnabled: boolean
-  webhookEnabled: boolean
+  serviceConfig?: {
+    apiEnabled?: boolean
+    webhookEnabled?: boolean
+  }
   users: AccountUser[]
   createdAt: string
+}
+
+const DEFAULT_PAGE_SIZE = 10
+
+interface UsersPopupPosition {
+  top: number
+  left: number
+  showAbove: boolean
 }
 
 export default function AccountsPage() {
@@ -47,14 +55,18 @@ export default function AccountsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState(searchParams?.get('search') || '')
   const [status, setStatus] = useState(searchParams?.get('status') || '')
+  const [pageSize, setPageSize] = useState(parseInt(searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE)))
   const [hoveredUsers, setHoveredUsers] = useState<string | null>(null)
+  const [usersPopupPosition, setUsersPopupPosition] = useState<UsersPopupPosition | null>(null)
+  const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
+  const usersButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const fetchAccounts = useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams()
       params.set('page', searchParams?.get('page') || '1')
-      params.set('limit', '10')
+      params.set('limit', String(pageSize))
       if (search) params.set('search', search)
       if (status) params.set('status', status)
 
@@ -70,7 +82,7 @@ export default function AccountsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [search, status, searchParams])
+  }, [search, status, pageSize, searchParams])
 
   useEffect(() => {
     fetchAccounts()
@@ -102,22 +114,44 @@ export default function AccountsPage() {
     }
   }
 
+  const handleUsersHover = (accountId: string) => {
+    const buttonEl = usersButtonRefs.current.get(accountId)
+    if (buttonEl) {
+      const rect = buttonEl.getBoundingClientRect()
+      const popupHeight = 250
+      const spaceBelow = window.innerHeight - rect.bottom
+      const showAbove = spaceBelow < popupHeight && rect.top > popupHeight
+
+      setUsersPopupPosition({
+        top: showAbove ? rect.top : rect.bottom + 8,
+        left: rect.left,
+        showAbove
+      })
+    }
+    setHoveredUsers(accountId)
+  }
+
+  const handleUsersLeave = () => {
+    setHoveredUsers(null)
+    setUsersPopupPosition(null)
+  }
+
   const columns: Column<Account>[] = [
+    {
+      key: 'id',
+      header: 'ID',
+      render: (account) => (
+        <span className="font-mono text-sm text-gray-600">{account.id}</span>
+      )
+    },
     {
       key: 'name',
       header: 'Cuenta',
       render: (account) => (
         <Link href={`/accounts/${account._id}`} className="block hover:text-primary transition-colors">
-          {account.name ? (
-            <div>
-              <div className="font-medium text-gray-900">
-                {account.name}
-              </div>
-              <div className="text-sm text-gray-500">{account.uid}</div>
-            </div>
-          ) : (
-            <span className="text-gray-400">-</span>
-          )}
+          <div className="font-medium text-gray-900">
+            {account.billing?.name || account.name}
+          </div>
         </Link>
       )
     },
@@ -164,9 +198,12 @@ export default function AccountsPage() {
       header: 'Usuarios',
       render: (account) => (
         <div
+          ref={(el) => {
+            if (el) usersButtonRefs.current.set(account._id, el)
+          }}
           className="relative"
-          onMouseEnter={() => setHoveredUsers(account._id)}
-          onMouseLeave={() => setHoveredUsers(null)}
+          onMouseEnter={() => handleUsersHover(account._id)}
+          onMouseLeave={handleUsersLeave}
         >
           <div className="flex items-center gap-1.5 cursor-pointer">
             <i className="ki-duotone ki-people text-gray-400">
@@ -178,31 +215,6 @@ export default function AccountsPage() {
             </i>
             <span className="font-medium">{account.users?.length || 0}</span>
           </div>
-          {hoveredUsers === account._id && account.users?.length > 0 && (
-            <div className="absolute left-0 top-full mt-2 w-72 bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-fade-in">
-              <div className="px-4 pb-2 border-b border-gray-100">
-                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuarios</span>
-              </div>
-              <div className="max-h-48 overflow-y-auto">
-                {account.users.map((userEntry, idx) => (
-                  <div key={idx} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
-                    <div className="text-sm font-medium text-gray-900">
-                      {userEntry.user?.firstName} {userEntry.user?.lastName}
-                    </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <span className="text-xs text-gray-500">{userEntry.user?.email}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${userEntry.role === 'OWNER'
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-gray-100 text-gray-600'
-                        }`}>
-                        {userEntry.role}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )
     },
@@ -263,44 +275,99 @@ export default function AccountsPage() {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (status) params.set('status', status)
+    if (pageSize !== DEFAULT_PAGE_SIZE) params.set('limit', String(pageSize))
     router.push(`/accounts?${params}`)
   }
 
   const handleFilterClear = () => {
     setSearch('')
     setStatus('')
+    setPageSize(DEFAULT_PAGE_SIZE)
     router.push('/accounts')
   }
 
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize)
+    const params = new URLSearchParams(searchParams?.toString() || '')
+    params.set('limit', String(newSize))
+    params.set('page', '1') // Reset to first page when changing size
+    router.push(`/accounts?${params}`)
+  }
+
+  const hoveredAccount = accounts.find(a => a._id === hoveredUsers)
+
   return (
-    <DataTable
-      data={accounts}
-      columns={columns}
-      keyExtractor={(account) => account._id}
-      isLoading={isLoading}
-      pagination={pagination}
-      basePath="/accounts"
-      filters={filters}
-      filterValues={{ search, status }}
-      onFilterChange={(key, value) => {
-        if (key === 'search') setSearch(value)
-        if (key === 'status') setStatus(value)
-      }}
-      onFilterSubmit={handleFilterSubmit}
-      onFilterClear={handleFilterClear}
-      actions={actions}
-      title="Cuentas"
-      subtitle="Gestiona las cuentas de clientes"
-      headerAction={
-        <Link href="/accounts/new" className="btn-primary flex items-center gap-2">
-          <i className="ki-duotone ki-plus text-xl">
-            <span className="path1"></span>
-            <span className="path2"></span>
-          </i>
-          Nueva Cuenta
-        </Link>
-      }
-      emptyMessage="No se encontraron cuentas"
-    />
+    <>
+      <DataTable
+        data={accounts}
+        columns={columns}
+        keyExtractor={(account) => account._id}
+        isLoading={isLoading}
+        pagination={pagination}
+        basePath="/accounts"
+        onPageSizeChange={handlePageSizeChange}
+        filters={filters}
+        filterValues={{ search, status }}
+        onFilterChange={(key, value) => {
+          if (key === 'search') setSearch(value)
+          if (key === 'status') setStatus(value)
+        }}
+        onFilterSubmit={handleFilterSubmit}
+        onFilterClear={handleFilterClear}
+        selectable
+        selectedItems={selectedAccounts}
+        onSelectionChange={setSelectedAccounts}
+        actions={actions}
+        title="Cuentas"
+        subtitle="Gestiona las cuentas de clientes"
+        headerAction={
+          <Link href="/accounts/new" className="btn-primary flex items-center gap-2">
+            <i className="ki-duotone ki-plus text-xl">
+              <span className="path1"></span>
+              <span className="path2"></span>
+            </i>
+            Nueva Cuenta
+          </Link>
+        }
+        emptyMessage="No se encontraron cuentas"
+      />
+
+      {/* Users Popup Portal */}
+      {hoveredUsers && hoveredAccount && usersPopupPosition && hoveredAccount.users?.length > 0 && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed w-72 bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-100 py-2 z-[99999] animate-fade-in"
+          style={{
+            top: usersPopupPosition.showAbove ? 'auto' : `${usersPopupPosition.top}px`,
+            bottom: usersPopupPosition.showAbove ? `${window.innerHeight - usersPopupPosition.top + 8}px` : 'auto',
+            left: `${usersPopupPosition.left}px`,
+          }}
+          onMouseEnter={() => setHoveredUsers(hoveredUsers)}
+          onMouseLeave={handleUsersLeave}
+        >
+          <div className="px-4 pb-2 border-b border-gray-100">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Usuarios</span>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {hoveredAccount.users.map((userEntry, idx) => (
+              <div key={idx} className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="text-sm font-medium text-gray-900">
+                  {userEntry.user?.firstName} {userEntry.user?.lastName}
+                </div>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="text-xs text-gray-500">{userEntry.user?.email}</span>
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${userEntry.role === 'OWNER'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-gray-100 text-gray-600'
+                    }`}>
+                    {userEntry.role}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

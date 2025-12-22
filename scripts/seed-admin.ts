@@ -24,7 +24,7 @@ async function seedAdmin() {
     const Admin = mongoose.models.Admin || mongoose.model('Admin', AdminSchema)
 
     // Check if admin exists
-    const existingAdmin = await Admin.findOne({ email: 'admin@fulldata.com' })
+    const existingAdmin = await Admin.findOne({ email: 'admin@fulldata.pro' })
     if (existingAdmin) {
       console.log('Admin already exists')
       process.exit(0)
@@ -37,7 +37,7 @@ async function seedAdmin() {
     const admin = new Admin({
       uid: `adm_${new mongoose.Types.ObjectId().toString()}`,
       name: 'Super Admin',
-      email: 'admin@fulldata.com',
+      email: 'admin@fulldata.pro',
       password: hashedPassword,
       role: 'SUPER_ADMIN',
       status: 'ACTIVE',
@@ -45,7 +45,7 @@ async function seedAdmin() {
 
     await admin.save()
     console.log('Admin created successfully!')
-    console.log('Email: admin@fulldata.com')
+    console.log('Email: admin@fulldata.pro')
     console.log('Password: admin123')
   } catch (error) {
     console.error('Error seeding admin:', error)

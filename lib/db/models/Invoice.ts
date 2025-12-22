@@ -1,51 +1,128 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
 import { InvoiceType, InvoiceTypes } from '@/lib/constants'
+import { addUidMiddleware } from '../helpers/uid-middleware'
+import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
 
+/**
+ * AFIP Business Data
+ */
+export interface IAFIPBusiness {
+  name: string
+  address: string
+  taxId: string
+  taxCondition: string
+  activityAt: number
+}
+
+/**
+ * AFIP Account/Customer Data
+ */
+export interface IAFIPAccount {
+  name: string
+  taxId: string
+  taxCondition: string
+  address: string
+}
+
+/**
+ * AFIP Invoice Item
+ */
+export interface IAFIPItem {
+  code: string
+  description: string
+  quantity: number
+  unit: string
+  unitPrice: number
+  amount: number
+  currency: string
+}
+
+/**
+ * Complete AFIP Invoice Data
+ */
 export interface IAFIPData {
+  /** Número de factura (ej: "0001-00000123") */
+  invoice: string
+  /** Tipo de factura (A, B o C) */
+  billType: 'A' | 'B' | 'C'
+  /** ID del tipo de comprobante AFIP */
+  voucherId: number
+  /** Tipo de comprobante legible */
+  voucherType: 'FACTURA' | 'NOTA_DE_DEBITO' | 'NOTA_DE_CREDITO' | 'RECIBO' | 'NOTAS_DE_VENTA_AL_CONTADO'
+  /** Número de punto de venta */
+  salePoint: number
+  /** Condición de venta */
+  saleCondition: string
+  /** Datos del emisor (negocio) */
+  business: IAFIPBusiness
+  /** Datos del receptor (cliente) */
+  account: IAFIPAccount
+  /** Items/productos de la factura */
+  items: IAFIPItem[]
+  /** Total de la factura */
+  total: number
+  /** Moneda */
+  currency: string
+  /** Código de Autorización Electrónica */
   cae: string
-  caeExpiration: Date
-  invoiceNumber: number
-  pointOfSale: number
-  invoiceType: string
-  qrCode?: string
+  /** Fecha de vencimiento del CAE (timestamp) */
+  caeExpiredDate: number
+  /** Fecha de emisión (timestamp) */
+  emitedDate: number
+  /** Fecha de inicio del servicio (timestamp) */
+  startDate?: number
+  /** Fecha de fin del servicio (timestamp) */
+  endDate?: number
+  /** Fecha de vencimiento de pago (timestamp) */
+  expiredDate?: number
+  /** Código QR en base64 */
+  qrCode: string
 }
 
 export interface IInvoice extends Document {
   _id: Types.ObjectId
+  id: number
   uid: string
   type: InvoiceType
   data: IAFIPData | Record<string, unknown>
-  file?: string
-  accountId: Types.ObjectId
-  receiptId: Types.ObjectId
+  file?: Types.ObjectId
+  account: Types.ObjectId
+  receiptId?: Types.ObjectId
   movementId?: Types.ObjectId
   createdBy?: Types.ObjectId
   updatedBy?: Types.ObjectId
+  createdAt: Date
+  updatedAt?: Date
   deletedAt?: Date
   deletedBy?: Types.ObjectId
-  createdAt: Date
-  updatedAt: Date
 }
 
 const InvoiceSchema = new Schema<IInvoice>(
   {
-    uid: {
-      type: String,
+    id: {
+      type: Number,
       required: true,
       unique: true,
-      default: () => `inv_${new Types.ObjectId().toString()}`,
+    },
+    uid: {
+      type: String,
+      unique: true,
     },
     type: {
       type: String,
       enum: Object.values(InvoiceTypes),
       required: true,
+      default: 'AFIP',
     },
     data: {
       type: Schema.Types.Mixed,
-      default: {},
+      required: true,
     },
-    file: String,
-    accountId: {
+    file: {
+      type: Schema.Types.ObjectId,
+      ref: 'File',
+    },
+    account: {
       type: Schema.Types.ObjectId,
       ref: 'Account',
       required: true,
@@ -53,7 +130,6 @@ const InvoiceSchema = new Schema<IInvoice>(
     receiptId: {
       type: Schema.Types.ObjectId,
       ref: 'Receipt',
-      required: true,
     },
     movementId: {
       type: Schema.Types.ObjectId,
@@ -61,26 +137,35 @@ const InvoiceSchema = new Schema<IInvoice>(
     },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Admin',
+      ref: 'User',
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Admin',
+      ref: 'User',
     },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: Date,
     deletedAt: Date,
     deletedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Admin',
+      ref: 'User',
     },
   },
   {
     collection: 'invoices',
-    timestamps: true,
+    timestamps: false,
   }
 )
 
+// Add middleware
+addUidMiddleware(InvoiceSchema)
+addSoftDeleteMiddleware(InvoiceSchema)
+
 // Indexes
-InvoiceSchema.index({ accountId: 1 })
+InvoiceSchema.index({ account: 1 })
 InvoiceSchema.index({ receiptId: 1 })
 InvoiceSchema.index({ type: 1 })
 InvoiceSchema.index({ createdAt: -1 })

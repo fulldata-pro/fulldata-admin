@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/db/connection'
-import Invoice from '@/lib/db/models/Invoice'
-import Account from '@/lib/db/models/Account'
-import Receipt from '@/lib/db/models/Receipt'
+import Invoice, { IInvoice } from '@/lib/db/models/Invoice'
+import '@/lib/db/models/register-models'
 import { validateAdminRequest } from '@/lib/auth'
+import { toInvoiceListDTO } from '@/lib/dto/invoice.dto'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,10 +13,6 @@ export async function GET(request: NextRequest) {
     }
 
     await dbConnect()
-
-    // Ensure models are registered for populate
-    Account
-    Receipt
 
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
@@ -31,13 +27,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (accountId) {
-      query.accountId = accountId
+      query.account = accountId
     }
 
     const [invoices, total] = await Promise.all([
       Invoice.find(query)
-        .populate('accountId', 'uid email billing')
+        .populate('account', 'uid email billing')
         .populate('receiptId', 'uid total currency')
+        .populate('file', 'url')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
@@ -45,7 +42,7 @@ export async function GET(request: NextRequest) {
     ])
 
     return NextResponse.json({
-      invoices,
+      invoices: toInvoiceListDTO(invoices as unknown as IInvoice[]),
       pagination: {
         page,
         limit,

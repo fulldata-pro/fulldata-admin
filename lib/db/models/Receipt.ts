@@ -1,104 +1,80 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
-import { ReceiptStatus, ReceiptStatusType, ServiceType, ServicesType } from '@/lib/constants'
+import { ReceiptStatus, ReceiptStatusType } from '@/lib/constants'
+import { addUidMiddleware } from '../helpers/uid-middleware'
 
-export interface ISearchPurchased {
-  proxyId: Types.ObjectId
-  serviceType: ServiceType
+export interface IReceiptTokens {
+  /** Cantidad de tokens comprados */
   quantity: number
-  cost: number
-  costUSD: number
-}
-
-export interface IReceiptExtra {
-  type: 'TAX' | 'DISCOUNT'
-  key: string
-  amount: number
-  amountUSD: number
+  /** Precio unitario del token en la moneda del recibo */
+  unitPrice: number
 }
 
 export interface IReceipt extends Document {
   _id: Types.ObjectId
+  /** ID numérico del recibo */
+  id: number
+  /** UID del recibo */
   uid: string
+  /** Estado del recibo */
   status: ReceiptStatusType
+  /** Mensaje del estado */
   statusMessage?: string
+  /** Monto total */
   total: number
-  totalUSD: number
+  /** Subtotal (antes de aplicar descuentos) */
   subtotal: number
-  subtotalUSD: number
+  /** Moneda de la transacción */
   currency: string
-  exchangeRate: number
-  searches: ISearchPurchased[]
-  extra: IReceiptExtra[]
+  /** Método de pago */
   paymentMethodId?: Types.ObjectId
+  /** Información de tokens comprados */
+  tokens?: IReceiptTokens
+  /** Beneficio adherido */
   benefitId?: Types.ObjectId
+  /** Código de descuento aplicado */
+  discountCodeId?: Types.ObjectId
+  /** Descuento por volumen aplicado */
+  bulkDiscountId?: Types.ObjectId
+  /** ID de transacción del proveedor de pago (MercadoPago, Stripe, etc.) */
+  providerTransactionId?: string
+  /** URL de pago del proveedor */
+  providerTransactionUrl?: string
+  /** Cuenta vinculada al recibo */
   accountId: Types.ObjectId
+  /** Factura generada para este recibo */
   invoiceId?: Types.ObjectId
-  transactionId?: string
-  deletedAt?: Date
-  deletedBy?: Types.ObjectId
+  /** Fecha de vencimiento */
+  expiredAt: Date
+  /** Usuario creador */
+  createdBy?: Types.ObjectId
+  /** Fecha de creación */
   createdAt: Date
-  updatedAt: Date
+  /** Fecha de actualización */
+  updatedAt?: Date
+  /** Fecha de eliminación */
+  deletedAt?: Date
+  /** Usuario eliminador */
+  deletedBy?: Types.ObjectId
 }
 
-const SearchPurchasedSchema = new Schema<ISearchPurchased>(
+const ReceiptTokensSchema = new Schema<IReceiptTokens>(
   {
-    proxyId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Proxy',
-      required: true,
-    },
-    serviceType: {
-      type: String,
-      enum: Object.values(ServicesType),
-      required: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    cost: {
-      type: Number,
-      required: true,
-    },
-    costUSD: {
-      type: Number,
-      required: true,
-    },
-  },
-  { _id: false }
-)
-
-const ExtraSchema = new Schema<IReceiptExtra>(
-  {
-    type: {
-      type: String,
-      enum: ['TAX', 'DISCOUNT'],
-      required: true,
-    },
-    key: {
-      type: String,
-      required: true,
-    },
-    amount: {
-      type: Number,
-      required: true,
-    },
-    amountUSD: {
-      type: Number,
-      required: true,
-    },
+    quantity: { type: Number, required: true },
+    unitPrice: { type: Number, required: true },
   },
   { _id: false }
 )
 
 const ReceiptSchema = new Schema<IReceipt>(
   {
-    uid: {
-      type: String,
+    id: {
+      type: Number,
       required: true,
       unique: true,
-      default: () => `rcp_${new Types.ObjectId().toString()}`,
+    },
+    uid: {
+      type: String,
+      unique: true,
     },
     status: {
       type: String,
@@ -110,36 +86,35 @@ const ReceiptSchema = new Schema<IReceipt>(
       type: Number,
       required: true,
     },
-    totalUSD: {
-      type: Number,
-      required: true,
-    },
     subtotal: {
-      type: Number,
-      required: true,
-    },
-    subtotalUSD: {
       type: Number,
       required: true,
     },
     currency: {
       type: String,
       required: true,
-      default: 'USD',
     },
-    exchangeRate: {
-      type: Number,
-      default: 1,
+    tokens: {
+      type: ReceiptTokensSchema,
+      required: false,
     },
-    searches: [SearchPurchasedSchema],
-    extra: [ExtraSchema],
     paymentMethodId: {
       type: Schema.Types.ObjectId,
       ref: 'PaymentMethod',
     },
+    providerTransactionId: String,
+    providerTransactionUrl: String,
     benefitId: {
       type: Schema.Types.ObjectId,
       ref: 'Benefit',
+    },
+    discountCodeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'DiscountCode',
+    },
+    bulkDiscountId: {
+      type: Schema.Types.ObjectId,
+      ref: 'BulkDiscount',
     },
     accountId: {
       type: Schema.Types.ObjectId,
@@ -150,18 +125,33 @@ const ReceiptSchema = new Schema<IReceipt>(
       type: Schema.Types.ObjectId,
       ref: 'Invoice',
     },
-    transactionId: String,
+    expiredAt: {
+      type: Date,
+      required: true,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: Date,
     deletedAt: Date,
     deletedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Admin',
+      ref: 'User',
     },
   },
   {
     collection: 'receipts',
-    timestamps: true,
+    timestamps: false,
   }
 )
+
+// Add middleware to generate uid from _id
+addUidMiddleware(ReceiptSchema)
 
 // Indexes
 ReceiptSchema.index({ accountId: 1 })

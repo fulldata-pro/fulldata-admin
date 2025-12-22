@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/db/connection'
-import Admin from '@/lib/db/models/Admin'
+import { adminRepository } from '@/lib/db/repositories'
 import { validateAdminRequest } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -15,8 +14,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Sin permisos' }, { status: 403 })
     }
 
-    await dbConnect()
-
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -24,40 +21,15 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get('role') || ''
     const status = searchParams.get('status') || ''
 
-    const query: Record<string, unknown> = {}
-
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ]
-    }
-
-    if (role) {
-      query.role = role
-    }
-
-    if (status) {
-      query.status = status
-    }
-
-    const [admins, total] = await Promise.all([
-      Admin.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .select('-password'),
-      Admin.countDocuments(query),
-    ])
+    const result = await adminRepository.list(
+      { search, role, status },
+      page,
+      limit
+    )
 
     return NextResponse.json({
-      admins,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      admins: result.data,
+      pagination: result.pagination,
     })
   } catch (error) {
     console.error('Get admins error:', error)
@@ -89,18 +61,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await dbConnect()
-
     // Check if email exists
-    const existingAdmin = await Admin.findOne({ email: body.email, deletedAt: null })
-    if (existingAdmin) {
+    const emailExists = await adminRepository.emailExists(body.email)
+    if (emailExists) {
       return NextResponse.json(
         { error: 'El email ya está registrado' },
         { status: 400 }
       )
     }
 
-    const admin = new Admin({
+    const admin = await adminRepository.createAdmin({
       name: body.name,
       email: body.email,
       password: body.password,
@@ -109,8 +79,6 @@ export async function POST(request: NextRequest) {
       status: body.status || 'ACTIVE',
       createdBy: currentAdmin._id,
     })
-
-    await admin.save()
 
     // Remove password from response
     const { password: _, ...adminObj } = admin.toObject()

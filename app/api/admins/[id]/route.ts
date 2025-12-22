@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/db/connection'
-import Admin from '@/lib/db/models/Admin'
+import { adminRepository } from '@/lib/db/repositories'
 import { validateAdminRequest } from '@/lib/auth'
 
 interface RouteParams {
@@ -15,9 +14,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    await dbConnect()
 
-    const admin = await Admin.findById(id).select('-password')
+    const admin = await adminRepository.findById(id, { select: '-password' })
 
     if (!admin) {
       return NextResponse.json({ error: 'Administrador no encontrado' }, { status: 404 })
@@ -43,10 +41,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
     const body = await request.json()
 
-    await dbConnect()
-
-    const admin = await Admin.findById(id)
-    if (!admin) {
+    const existingAdmin = await adminRepository.findById(id)
+    if (!existingAdmin) {
       return NextResponse.json({ error: 'Administrador no encontrado' }, { status: 404 })
     }
 
@@ -60,19 +56,24 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Sin permisos para asignar rol SUPER_ADMIN' }, { status: 403 })
     }
 
-    if (body.name !== undefined) admin.name = body.name
-    if (body.email !== undefined) admin.email = body.email
-    if (body.phone !== undefined) admin.phone = body.phone
-    if (body.role !== undefined) admin.role = body.role
-    if (body.status !== undefined) admin.status = body.status
-    if (body.password) admin.password = body.password // Will be hashed by pre-save hook
+    // Check email uniqueness if changing email
+    if (body.email && body.email !== existingAdmin.email) {
+      const emailExists = await adminRepository.emailExists(body.email, id)
+      if (emailExists) {
+        return NextResponse.json({ error: 'El email ya está registrado' }, { status: 400 })
+      }
+    }
 
-    admin.updatedBy = currentAdmin._id
-    await admin.save()
+    const admin = await adminRepository.updateAdmin(id, {
+      name: body.name,
+      email: body.email,
+      phone: body.phone,
+      role: body.role,
+      status: body.status,
+      password: body.password,
+    }, currentAdmin._id)
 
-    const { password: _, ...adminObj } = admin.toObject()
-
-    return NextResponse.json({ admin: adminObj })
+    return NextResponse.json({ admin })
   } catch (error) {
     console.error('Update admin error:', error)
     return NextResponse.json(
@@ -101,16 +102,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'No puedes eliminarte a ti mismo' }, { status: 400 })
     }
 
-    await dbConnect()
-
-    const admin = await Admin.findById(id)
+    const admin = await adminRepository.findById(id)
     if (!admin) {
       return NextResponse.json({ error: 'Administrador no encontrado' }, { status: 404 })
     }
 
-    admin.deletedAt = new Date()
-    admin.deletedBy = currentAdmin._id
-    await admin.save()
+    await adminRepository.softDelete(id, currentAdmin._id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

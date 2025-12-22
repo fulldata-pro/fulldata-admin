@@ -1,38 +1,61 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
+import { addUidMiddleware } from '../helpers/uid-middleware'
+
+export enum AuthProviders {
+  LOCAL = 'LOCAL',
+  GOOGLE = 'GOOGLE',
+}
 
 export interface IUser extends Document {
   _id: Types.ObjectId
+  id: number
   uid: string
+  accounts: Types.ObjectId[]
   email: string
+  password?: string
   firstName: string
   lastName: string
+  avatar?: string
   phone?: string
   phoneCountryCode?: string
-  avatar?: string
-  authMethod: 'LOCAL' | 'GOOGLE'
+  googleId?: string
+  provider?: AuthProviders
   emailVerifiedAt?: Date
   phoneVerifiedAt?: Date
   onboardingCreditUsedAt?: Date
+  createdAt: Date
+  updatedAt?: Date
   deletedAt?: Date
   deletedBy?: Types.ObjectId
-  createdAt: Date
-  updatedAt: Date
 }
 
 const UserSchema = new Schema<IUser>(
   {
-    uid: {
-      type: String,
+    id: {
+      type: Number,
       required: true,
       unique: true,
-      default: () => `usr_${new Types.ObjectId().toString()}`,
     },
+    uid: {
+      type: String,
+      unique: true,
+    },
+    accounts: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Account',
+      },
+    ],
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
       trim: true,
+    },
+    password: {
+      type: String,
+      required: false,
     },
     firstName: {
       type: String,
@@ -44,6 +67,7 @@ const UserSchema = new Schema<IUser>(
       required: true,
       trim: true,
     },
+    avatar: String,
     phone: {
       type: String,
       trim: true,
@@ -52,26 +76,37 @@ const UserSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
-    avatar: String,
-    authMethod: {
+    googleId: String,
+    provider: {
       type: String,
-      enum: ['LOCAL', 'GOOGLE'],
-      default: 'LOCAL',
+      enum: Object.values(AuthProviders),
+      default: AuthProviders.LOCAL,
     },
     emailVerifiedAt: Date,
     phoneVerifiedAt: Date,
-    onboardingCreditUsedAt: Date,
+    onboardingCreditUsedAt: {
+      type: Date,
+      default: null,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+    updatedAt: Date,
     deletedAt: Date,
     deletedBy: {
       type: Schema.Types.ObjectId,
-      ref: 'Admin',
+      ref: 'User',
     },
   },
   {
     collection: 'users',
-    timestamps: true,
+    timestamps: false,
   }
 )
+
+// Add middleware to generate uid from _id
+addUidMiddleware(UserSchema)
 
 // Indexes
 // Note: email index is already created by unique: true

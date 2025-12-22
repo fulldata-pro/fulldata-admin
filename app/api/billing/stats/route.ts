@@ -1,9 +1,16 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/db/connection'
 import Receipt from '@/lib/db/models/Receipt'
+import '@/lib/db/models/register-models' // Register all models for populate
+import { validateAdminRequest } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { error } = await validateAdminRequest(request)
+    if (error) {
+      return NextResponse.json({ error }, { status: 401 })
+    }
+
     await dbConnect()
 
     const now = new Date()
@@ -20,16 +27,16 @@ export async function GET() {
       Receipt.countDocuments(),
       Receipt.countDocuments({ status: 'COMPLETED' }),
       Receipt.countDocuments({ status: { $in: ['PENDING', 'PROCESSING'] } }),
-      Receipt.find({ status: 'COMPLETED' }).select('totalUSD'),
-      Receipt.find({ status: 'COMPLETED', createdAt: { $gte: startOfMonth } }).select('totalUSD'),
+      Receipt.find({ status: 'COMPLETED' }).select('total currency'),
+      Receipt.find({ status: 'COMPLETED', createdAt: { $gte: startOfMonth } }).select('total currency'),
       Receipt.find()
         .sort({ createdAt: -1 })
         .limit(5)
         .populate('accountId', 'uid email billing'),
     ])
 
-    const totalRevenue = allCompletedReceipts.reduce((sum, r) => sum + (r.totalUSD || 0), 0)
-    const revenueThisMonth = thisMonthReceipts.reduce((sum, r) => sum + (r.totalUSD || 0), 0)
+    const totalRevenue = allCompletedReceipts.reduce((sum, r) => sum + (r.total || 0), 0)
+    const revenueThisMonth = thisMonthReceipts.reduce((sum, r) => sum + (r.total || 0), 0)
 
     return NextResponse.json({
       totalReceipts,

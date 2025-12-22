@@ -19,6 +19,8 @@ interface Admin {
   createdAt: string
 }
 
+const DEFAULT_PAGE_SIZE = 10
+
 export default function AdminsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -28,6 +30,8 @@ export default function AdminsPage() {
   const [search, setSearch] = useState(searchParams?.get('search') || '')
   const [role, setRole] = useState(searchParams?.get('role') || '')
   const [status, setStatus] = useState(searchParams?.get('status') || '')
+  const [pageSize, setPageSize] = useState(parseInt(searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE)))
+  const [selectedAdmins, setSelectedAdmins] = useState<string[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<Partial<Admin> & { password?: string } | null>(null)
 
@@ -36,7 +40,7 @@ export default function AdminsPage() {
     try {
       const params = new URLSearchParams()
       params.set('page', searchParams?.get('page') || '1')
-      params.set('limit', '10')
+      params.set('limit', String(pageSize))
       if (search) params.set('search', search)
       if (role) params.set('role', role)
       if (status) params.set('status', status)
@@ -55,7 +59,7 @@ export default function AdminsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [search, role, status, searchParams])
+  }, [search, role, status, pageSize, searchParams])
 
   useEffect(() => {
     fetchAdmins()
@@ -135,6 +139,15 @@ export default function AdminsPage() {
     }
   }
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'ACTIVE': return 'Activo'
+      case 'INACTIVE': return 'Inactivo'
+      case 'SUSPENDED': return 'Suspendido'
+      default: return status
+    }
+  }
+
   const columns: Column<Admin>[] = [
     {
       key: 'admin',
@@ -163,7 +176,7 @@ export default function AdminsPage() {
       header: 'Estado',
       render: (admin) => (
         <Badge variant={getStatusBadgeVariant(admin.status) as 'success' | 'gray' | 'danger'}>
-          {admin.status}
+          {getStatusLabel(admin.status)}
         </Badge>
       )
     },
@@ -180,10 +193,10 @@ export default function AdminsPage() {
     },
     {
       key: 'createdAt',
-      header: 'Fecha',
+      header: 'Creado',
       render: (admin) => (
         <span className="text-gray-500 text-sm">
-          {formatDate(admin.createdAt)}
+          {formatDateTime(admin.createdAt)}
         </span>
       )
     }
@@ -209,7 +222,7 @@ export default function AdminsPage() {
       label: 'Estado',
       type: 'select',
       placeholder: 'Todos',
-      options: Object.values(AdminStatus).map((s) => ({ value: s, label: s })),
+      options: Object.values(AdminStatus).map((s) => ({ value: s, label: getStatusLabel(s) })),
       className: 'w-40'
     }
   ]
@@ -236,6 +249,7 @@ export default function AdminsPage() {
     if (search) params.set('search', search)
     if (role) params.set('role', role)
     if (status) params.set('status', status)
+    if (pageSize !== DEFAULT_PAGE_SIZE) params.set('limit', String(pageSize))
     router.push(`/admins?${params}`)
   }
 
@@ -243,7 +257,16 @@ export default function AdminsPage() {
     setSearch('')
     setRole('')
     setStatus('')
+    setPageSize(DEFAULT_PAGE_SIZE)
     router.push('/admins')
+  }
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize)
+    const params = new URLSearchParams(searchParams?.toString() || '')
+    params.set('limit', String(newSize))
+    params.set('page', '1')
+    router.push(`/admins?${params}`)
   }
 
   return (
@@ -255,6 +278,7 @@ export default function AdminsPage() {
         isLoading={isLoading}
         pagination={pagination}
         basePath="/admins"
+        onPageSizeChange={handlePageSizeChange}
         filters={filters}
         filterValues={{ search, role, status }}
         onFilterChange={(key, value) => {
@@ -264,6 +288,9 @@ export default function AdminsPage() {
         }}
         onFilterSubmit={handleFilterSubmit}
         onFilterClear={handleFilterClear}
+        selectable
+        selectedItems={selectedAdmins}
+        onSelectionChange={setSelectedAdmins}
         actions={actions}
         title="Administradores"
         subtitle="Gestiona los usuarios administrativos"
@@ -351,7 +378,7 @@ export default function AdminsPage() {
                   >
                     {Object.values(AdminStatus).map((s) => (
                       <option key={s} value={s}>
-                        {s}
+                        {getStatusLabel(s)}
                       </option>
                     ))}
                   </select>

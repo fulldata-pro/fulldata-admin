@@ -1,12 +1,18 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import dbConnect from '@/lib/db/connection'
 import Account from '@/lib/db/models/Account'
 import User from '@/lib/db/models/User'
 import Receipt from '@/lib/db/models/Receipt'
 import mongoose from 'mongoose'
+import { validateAdminRequest } from '@/lib/auth'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { error } = await validateAdminRequest(request)
+    if (error) {
+      return NextResponse.json({ error }, { status: 401 })
+    }
+
     await dbConnect()
 
     // Get accounts stats
@@ -14,7 +20,7 @@ export async function GET() {
       Account.countDocuments({ deletedAt: null }),
       Account.countDocuments({ status: 'ACTIVE', deletedAt: null }),
       User.countDocuments({ deletedAt: null }),
-      Receipt.find({ status: 'COMPLETED' }).select('totalUSD'),
+      Receipt.find({ status: 'COMPLETED' }).select('total currency'),
       Account.find({ deletedAt: null })
         .sort({ createdAt: -1 })
         .limit(5)
@@ -22,7 +28,7 @@ export async function GET() {
     ])
 
     // Calculate total revenue
-    const totalRevenue = receipts.reduce((sum, r) => sum + (r.totalUSD || 0), 0)
+    const totalRevenue = receipts.reduce((sum, r) => sum + (r.total || 0), 0)
 
     // Get real service usage from requests collection
     let serviceUsage: { type: string; count: number }[] = []
