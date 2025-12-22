@@ -2,27 +2,35 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'react-toastify'
-import { ServiceLabels, ServiceColors, ServiceType, Currencies } from '@/lib/constants'
-
-interface Price {
-  amount: number
-  currency: string
-}
+import { ServiceLabels, ServiceColors, ServiceType } from '@/lib/constants'
 
 interface ProxyService {
   type: ServiceType
-  prices: Price[]
+  tokenCost?: number
   isEnabled: boolean
-  hideInSearchForm: boolean
+  hideInSearchForm?: boolean
 }
 
 interface Proxy {
-  _id: string
+  id: number
   uid: string
   name: string
   countryCode: string
   services: ProxyService[]
   createdAt: string
+}
+
+const countryFlags: Record<string, string> = {
+  AR: '🇦🇷',
+  US: '🇺🇸',
+  BR: '🇧🇷',
+  MX: '🇲🇽',
+  CL: '🇨🇱',
+  CO: '🇨🇴',
+  PE: '🇵🇪',
+  UY: '🇺🇾',
+  ES: '🇪🇸',
+  GLOBAL: '🌍',
 }
 
 export default function ServicesPage() {
@@ -31,7 +39,7 @@ export default function ServicesPage() {
   const [editingProxy, setEditingProxy] = useState<Proxy | null>(null)
   const [showModal, setShowModal] = useState(false)
 
-  const fetchProxies = async () => {
+  const fetchData = async () => {
     try {
       const response = await fetch('/api/services')
       if (response.ok) {
@@ -39,23 +47,29 @@ export default function ServicesPage() {
         setProxies(data.proxies)
       }
     } catch (error) {
-      console.error('Error fetching services:', error)
-      toast.error('Error al cargar servicios')
+      console.error('Error fetching data:', error)
+      toast.error('Error al cargar datos')
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchProxies()
+    fetchData()
   }, [])
 
   const handleSave = async () => {
     if (!editingProxy) return
 
+    if (!editingProxy.name || !editingProxy.countryCode) {
+      toast.error('Nombre y código de país son requeridos')
+      return
+    }
+
     try {
-      const method = editingProxy._id ? 'PUT' : 'POST'
-      const url = editingProxy._id ? `/api/services/${editingProxy._id}` : '/api/services'
+      const isNew = !editingProxy.uid
+      const method = isNew ? 'POST' : 'PUT'
+      const url = isNew ? '/api/services' : `/api/services/${editingProxy.uid}`
 
       const response = await fetch(url, {
         method,
@@ -64,49 +78,49 @@ export default function ServicesPage() {
       })
 
       if (response.ok) {
-        toast.success(editingProxy._id ? 'Servicio actualizado' : 'Servicio creado')
+        toast.success(isNew ? 'Proxy creado' : 'Proxy actualizado')
         setShowModal(false)
         setEditingProxy(null)
-        fetchProxies()
+        fetchData()
       } else {
-        toast.error('Error al guardar servicio')
+        const data = await response.json()
+        toast.error(data.error || 'Error al guardar proxy')
       }
     } catch {
-      toast.error('Error al guardar servicio')
+      toast.error('Error al guardar proxy')
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este servicio?')) return
+  const handleDelete = async (uid: string) => {
+    if (!confirm('¿Estás seguro de eliminar este proxy?')) return
 
     try {
-      const response = await fetch(`/api/services/${id}`, { method: 'DELETE' })
+      const response = await fetch(`/api/services/${uid}`, { method: 'DELETE' })
       if (response.ok) {
-        toast.success('Servicio eliminado')
-        fetchProxies()
+        toast.success('Proxy eliminado')
+        fetchData()
       } else {
-        toast.error('Error al eliminar servicio')
+        toast.error('Error al eliminar proxy')
       }
     } catch {
-      toast.error('Error al eliminar servicio')
+      toast.error('Error al eliminar proxy')
     }
   }
 
   const handleServiceToggle = async (proxy: Proxy, serviceType: ServiceType, enabled: boolean) => {
-    const updatedServices = proxy.services.map((s) =>
-      s.type === serviceType ? { ...s, isEnabled: enabled } : s
-    )
-
     try {
-      const response = await fetch(`/api/services/${proxy._id}`, {
+      const response = await fetch(`/api/services/${proxy.uid}/toggle`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services: updatedServices }),
+        body: JSON.stringify({ serviceType, isEnabled: enabled }),
       })
 
       if (response.ok) {
         toast.success('Servicio actualizado')
-        fetchProxies()
+        fetchData()
+      } else {
+        const data = await response.json()
+        toast.error(data.error || 'Error al actualizar servicio')
       }
     } catch {
       toast.error('Error al actualizar servicio')
@@ -115,7 +129,7 @@ export default function ServicesPage() {
 
   const openNewModal = () => {
     setEditingProxy({
-      _id: '',
+      id: 0,
       uid: '',
       name: '',
       countryCode: 'AR',
@@ -153,14 +167,16 @@ export default function ServicesPage() {
       {/* Proxies list */}
       <div className="grid grid-cols-1 gap-6">
         {proxies.map((proxy) => (
-          <div key={proxy._id} className="card">
+          <div key={proxy.uid} className="card">
             <div className="flex items-start justify-between mb-6">
               <div>
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{proxy.countryCode === 'AR' ? '🇦🇷' : proxy.countryCode === 'US' ? '🇺🇸' : '🌍'}</span>
+                  <span className="text-2xl">{countryFlags[proxy.countryCode] || '🌍'}</span>
                   <div>
                     <h3 className="text-lg font-semibold text-secondary">{proxy.name}</h3>
-                    <p className="text-sm text-gray-500">{proxy.uid} • {proxy.countryCode}</p>
+                    <p className="text-sm text-gray-500">
+                      ID: {proxy.id} • {proxy.countryCode}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -178,7 +194,7 @@ export default function ServicesPage() {
                   </i>
                 </button>
                 <button
-                  onClick={() => handleDelete(proxy._id)}
+                  onClick={() => handleDelete(proxy.uid)}
                   className="btn-outline px-3 py-1.5 text-red-500 hover:bg-red-50 hover:border-red-300"
                 >
                   <i className="ki-duotone ki-trash text-lg">
@@ -220,17 +236,19 @@ export default function ServicesPage() {
                       <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                     </label>
                   </div>
-                  <div className="space-y-1">
-                    {service.prices.map((price, i) => (
-                      <div key={i} className="flex justify-between text-sm">
-                        <span className="text-gray-500">{price.currency}</span>
-                        <span className="font-medium">${price.amount}</span>
-                      </div>
-                    ))}
-                    {service.prices.length === 0 && (
-                      <p className="text-sm text-gray-400">Sin precios configurados</p>
-                    )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Costo en tokens</span>
+                    <span className="font-semibold text-secondary">
+                      {(service.tokenCost ?? 0).toLocaleString()}
+                    </span>
                   </div>
+                  {service.hideInSearchForm && (
+                    <div className="mt-2">
+                      <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded">
+                        Oculto en búsqueda
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))}
               {proxy.services.length === 0 && (
@@ -262,7 +280,7 @@ export default function ServicesPage() {
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-secondary">
-                {editingProxy._id ? 'Editar Proxy' : 'Nuevo Proxy'}
+                {editingProxy.uid ? 'Editar Proxy' : 'Nuevo Proxy'}
               </h2>
             </div>
             <div className="p-6 space-y-4">
@@ -282,7 +300,9 @@ export default function ServicesPage() {
                   <input
                     type="text"
                     value={editingProxy.countryCode}
-                    onChange={(e) => setEditingProxy({ ...editingProxy, countryCode: e.target.value.toUpperCase() })}
+                    onChange={(e) =>
+                      setEditingProxy({ ...editingProxy, countryCode: e.target.value.toUpperCase() })
+                    }
                     className="input-field"
                     placeholder="AR"
                     maxLength={2}
@@ -296,7 +316,8 @@ export default function ServicesPage() {
                   {Object.entries(ServiceLabels).map(([type, label]) => {
                     const existingService = editingProxy.services.find((s) => s.type === type)
                     const isEnabled = existingService?.isEnabled ?? false
-                    const prices = existingService?.prices || []
+                    const tokenCost = existingService?.tokenCost ?? 0
+                    const hideInSearchForm = existingService?.hideInSearchForm ?? false
 
                     return (
                       <div key={type} className="p-4 border border-gray-200 rounded-xl">
@@ -322,7 +343,7 @@ export default function ServicesPage() {
                                     type: type as ServiceType,
                                     isEnabled: e.target.checked,
                                     hideInSearchForm: false,
-                                    prices: [{ amount: 0, currency: 'USD' }],
+                                    tokenCost: 1,
                                   })
                                 }
                                 setEditingProxy({ ...editingProxy, services })
@@ -333,41 +354,43 @@ export default function ServicesPage() {
                           </label>
                         </div>
                         {isEnabled && (
-                          <div className="grid grid-cols-2 gap-2">
-                            {Object.values(Currencies).map((currency) => {
-                              const price = prices.find((p) => p.currency === currency)
-                              return (
-                                <div key={currency} className="flex items-center gap-2">
-                                  <span className="text-sm text-gray-500 w-10">{currency}</span>
-                                  <input
-                                    type="number"
-                                    value={price?.amount || ''}
-                                    onChange={(e) => {
-                                      const services = [...editingProxy.services]
-                                      const sIdx = services.findIndex((s) => s.type === type)
-                                      if (sIdx >= 0) {
-                                        const pIdx = services[sIdx].prices.findIndex(
-                                          (p) => p.currency === currency
-                                        )
-                                        if (pIdx >= 0) {
-                                          services[sIdx].prices[pIdx].amount = parseFloat(e.target.value) || 0
-                                        } else {
-                                          services[sIdx].prices.push({
-                                            currency,
-                                            amount: parseFloat(e.target.value) || 0,
-                                          })
-                                        }
-                                        setEditingProxy({ ...editingProxy, services })
-                                      }
-                                    }}
-                                    className="input-field py-1 text-sm"
-                                    placeholder="0.00"
-                                    min="0"
-                                    step="0.01"
-                                  />
-                                </div>
-                              )
-                            })}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm text-gray-500">Costo en Tokens</label>
+                              <input
+                                type="number"
+                                value={tokenCost}
+                                onChange={(e) => {
+                                  const services = [...editingProxy.services]
+                                  const idx = services.findIndex((s) => s.type === type)
+                                  if (idx >= 0) {
+                                    services[idx].tokenCost = parseInt(e.target.value) || 0
+                                    setEditingProxy({ ...editingProxy, services })
+                                  }
+                                }}
+                                className="input-field py-1.5 text-sm mt-1"
+                                placeholder="1"
+                                min="0"
+                              />
+                            </div>
+                            <div className="flex items-end">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={hideInSearchForm}
+                                  onChange={(e) => {
+                                    const services = [...editingProxy.services]
+                                    const idx = services.findIndex((s) => s.type === type)
+                                    if (idx >= 0) {
+                                      services[idx].hideInSearchForm = e.target.checked
+                                      setEditingProxy({ ...editingProxy, services })
+                                    }
+                                  }}
+                                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
+                                <span className="text-sm text-gray-600">Ocultar en búsqueda</span>
+                              </label>
+                            </div>
                           </div>
                         )}
                       </div>

@@ -1,77 +1,56 @@
-import mongoose, { Schema, Document, Model, Types } from 'mongoose'
-import { ServiceType, ServicesType, CurrencyType, Currencies } from '@/lib/constants'
+import mongoose, { Schema, Document, Types } from 'mongoose'
+import { ServiceType, ServicesType } from '@/lib/constants'
+import { ExtendedModel, DocumentCommon } from '@/lib/db/types/model.types'
 
-export interface IPrompt {
+export interface IProxyPrompt {
   key: string
-  match?: string
+  match: string
   type: 'any' | 'number' | 'text'
-}
-
-export interface IPrice {
-  amount: number
-  currency: CurrencyType
 }
 
 export interface IProxyService {
   type: ServiceType
-  prices: IPrice[]
+  tokenCost: number
   isEnabled: boolean
-  hideInSearchForm: boolean
-  prompts: IPrompt[]
+  hideInSearchForm?: boolean
+  prompts: IProxyPrompt[]
+  updatedBy?: Types.ObjectId
+  updatedAt?: Date
 }
 
-export interface IProxy extends Document {
-  _id: Types.ObjectId
+export interface IProxy extends Document, DocumentCommon {
+  id: number
   uid: string
   name: string
   countryCode: string
   services: IProxyService[]
+  createdAt: Date
+  updatedAt?: Date
   deletedAt?: Date
   deletedBy?: Types.ObjectId
-  createdAt: Date
-  updatedAt: Date
 }
 
-const PromptSchema = new Schema<IPrompt>(
+const ProxyPromptSchema = new Schema<IProxyPrompt>(
   {
-    key: {
-      type: String,
-      required: true,
-    },
-    match: String,
-    type: {
-      type: String,
-      enum: ['any', 'number', 'text'],
-      default: 'any',
-    },
+    key: { type: String, required: true },
+    match: { type: String, required: true },
+    type: { type: String, enum: ['any', 'number', 'text'], required: true },
   },
   { _id: false }
 )
 
-const PriceSchema = new Schema<IPrice>(
-  {
-    amount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    currency: {
-      type: String,
-      enum: Object.values(Currencies),
-      required: true,
-    },
-  },
-  { _id: false }
-)
-
-const ServiceSchema = new Schema<IProxyService>(
+const ProxyServiceSchema = new Schema<IProxyService>(
   {
     type: {
       type: String,
       enum: Object.values(ServicesType),
       required: true,
     },
-    prices: [PriceSchema],
+    tokenCost: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     isEnabled: {
       type: Boolean,
       default: true,
@@ -80,18 +59,29 @@ const ServiceSchema = new Schema<IProxyService>(
       type: Boolean,
       default: false,
     },
-    prompts: [PromptSchema],
+    prompts: {
+      type: [ProxyPromptSchema],
+      default: [],
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
+    updatedAt: Date,
   },
   { _id: false }
 )
 
 const ProxySchema = new Schema<IProxy>(
   {
-    uid: {
-      type: String,
+    id: {
+      type: Number,
       required: true,
       unique: true,
-      default: () => `prx_${new Types.ObjectId().toString()}`,
+    },
+    uid: {
+      type: String,
+      unique: true,
     },
     name: {
       type: String,
@@ -103,7 +93,10 @@ const ProxySchema = new Schema<IProxy>(
       required: true,
       uppercase: true,
     },
-    services: [ServiceSchema],
+    services: {
+      type: [ProxyServiceSchema],
+      default: [],
+    },
     deletedAt: Date,
     deletedBy: {
       type: Schema.Types.ObjectId,
@@ -116,12 +109,27 @@ const ProxySchema = new Schema<IProxy>(
   }
 )
 
+// Pre-save middleware to generate uid from _id
+ProxySchema.pre('save', function (next) {
+  if (!this.uid && this._id) {
+    this.uid = `prx_${this._id.toString()}`
+  }
+  next()
+})
+
 // Indexes
 ProxySchema.index({ countryCode: 1 })
 ProxySchema.index({ 'services.type': 1 })
 ProxySchema.index({ deletedAt: 1 })
 
-const Proxy: Model<IProxy> =
-  mongoose.models.Proxy || mongoose.model<IProxy>('Proxy', ProxySchema)
+// Static method to get next ID
+ProxySchema.statics.getNextId = async function (): Promise<number> {
+  const lastDoc = await this.findOne().sort({ id: -1 }).select('id').lean()
+  return ((lastDoc as { id?: number })?.id || 0) + 1
+}
+
+const Proxy =
+  (mongoose.models.Proxy as ExtendedModel<IProxy>) ||
+  mongoose.model<IProxy, ExtendedModel<IProxy>>('Proxy', ProxySchema)
 
 export default Proxy

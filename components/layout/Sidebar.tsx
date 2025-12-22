@@ -43,6 +43,7 @@ const navigation: NavSection[] = [
     title: 'Configuración',
     items: [
       { label: 'Servicios', href: '/services', icon: 'ki-setting-2' },
+      { label: 'Métodos de Pago', href: '/payment-methods', icon: 'ki-wallet' },
       { label: 'Beneficios', href: '/benefits', icon: 'ki-gift' },
       { label: 'Ajustes', href: '/settings', icon: 'ki-gear' },
     ],

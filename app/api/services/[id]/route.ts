@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/db/connection'
-import Proxy from '@/lib/db/models/Proxy'
 import { validateAdminRequest } from '@/lib/auth'
+import { proxyRepository } from '@/lib/db/repositories'
+import { toProxyDetailDTO } from '@/lib/dto/proxy.dto'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -15,15 +15,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    await dbConnect()
 
-    const proxy = await Proxy.findById(id)
-
+    // Try to find by uid first, then by _id
+    let proxy = await proxyRepository.findByUid(id)
     if (!proxy) {
+      proxy = await proxyRepository.findById(id)
+    }
+
+    if (!proxy || proxy.deletedAt) {
       return NextResponse.json({ error: 'Servicio no encontrado' }, { status: 404 })
     }
 
-    return NextResponse.json({ proxy })
+    return NextResponse.json({ proxy: toProxyDetailDTO(proxy) })
   } catch (error) {
     console.error('Get service error:', error)
     return NextResponse.json(
@@ -43,20 +46,56 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
     const body = await request.json()
 
-    await dbConnect()
-
-    const proxy = await Proxy.findById(id)
+    // Try to find by uid first, then by _id
+    let proxy = await proxyRepository.findByUid(id)
     if (!proxy) {
+      proxy = await proxyRepository.findById(id)
+    }
+
+    if (!proxy || proxy.deletedAt) {
       return NextResponse.json({ error: 'Servicio no encontrado' }, { status: 404 })
     }
 
-    if (body.name !== undefined) proxy.name = body.name
-    if (body.countryCode !== undefined) proxy.countryCode = body.countryCode.toUpperCase()
-    if (body.services !== undefined) proxy.services = body.services
+    // Build update object
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date(),
+    }
 
-    await proxy.save()
+    if (body.name !== undefined) {
+      updateData.name = body.name
+    }
+    if (body.countryCode !== undefined) {
+      updateData.countryCode = body.countryCode.toUpperCase()
+    }
+    if (body.services !== undefined) {
+      // Merge services: keep existing prompts, update editable fields
+      updateData.services = body.services.map((newService: Record<string, unknown>) => {
+        const existingService = proxy.services.find(s => s.type === newService.type)
 
-    return NextResponse.json({ proxy })
+        // Use frontend value if it's a valid number, otherwise keep existing
+        const tokenCost = typeof newService.tokenCost === 'number'
+          ? newService.tokenCost
+          : (existingService?.tokenCost ?? 0)
+
+        return {
+          type: newService.type,
+          tokenCost,
+          isEnabled: newService.isEnabled ?? existingService?.isEnabled ?? true,
+          hideInSearchForm: newService.hideInSearchForm ?? existingService?.hideInSearchForm ?? false,
+          prompts: existingService?.prompts || [], // Always preserve existing prompts
+          updatedBy: admin._id,
+          updatedAt: new Date(),
+        }
+      })
+    }
+
+    const updatedProxy = await proxyRepository.update(proxy._id, updateData)
+
+    if (!updatedProxy) {
+      return NextResponse.json({ error: 'Error al actualizar' }, { status: 500 })
+    }
+
+    return NextResponse.json({ proxy: toProxyDetailDTO(updatedProxy) })
   } catch (error) {
     console.error('Update service error:', error)
     return NextResponse.json(
@@ -74,16 +113,18 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params
-    await dbConnect()
 
-    const proxy = await Proxy.findById(id)
+    // Try to find by uid first, then by _id
+    let proxy = await proxyRepository.findByUid(id)
     if (!proxy) {
+      proxy = await proxyRepository.findById(id)
+    }
+
+    if (!proxy || proxy.deletedAt) {
       return NextResponse.json({ error: 'Servicio no encontrado' }, { status: 404 })
     }
 
-    proxy.deletedAt = new Date()
-    proxy.deletedBy = admin._id
-    await proxy.save()
+    await proxyRepository.softDelete(proxy._id, admin._id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

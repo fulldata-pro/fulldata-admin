@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/db/connection'
-import Proxy from '@/lib/db/models/Proxy'
 import { validateAdminRequest } from '@/lib/auth'
+import { proxyRepository } from '@/lib/db/repositories'
+import { toProxyListDTO } from '@/lib/dto/proxy.dto'
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,35 +10,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error }, { status: 401 })
     }
 
-    await dbConnect()
-
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const countryCode = searchParams.get('countryCode') || ''
+    const limit = parseInt(searchParams.get('limit') || '50')
+    const countryCode = searchParams.get('countryCode') || undefined
+    const currency = searchParams.get('currency') || undefined
 
-    const query: Record<string, unknown> = {}
-
-    if (countryCode) {
-      query.countryCode = countryCode.toUpperCase()
-    }
-
-    const [proxies, total] = await Promise.all([
-      Proxy.find(query)
-        .sort({ countryCode: 1, name: 1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
-      Proxy.countDocuments(query),
-    ])
+    const result = await proxyRepository.list({
+      page,
+      limit,
+      filters: {
+        countryCode,
+        currency,
+      },
+    })
 
     return NextResponse.json({
-      proxies,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
+      proxies: toProxyListDTO(result.data),
+      pagination: result.pagination,
     })
   } catch (error) {
     console.error('Get services error:', error)
@@ -58,17 +47,33 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
-    await dbConnect()
+    if (!body.name || !body.countryCode) {
+      return NextResponse.json(
+        { error: 'Nombre y código de país son requeridos' },
+        { status: 400 }
+      )
+    }
 
-    const proxy = new Proxy({
+    const proxy = await proxyRepository.createProxy({
       name: body.name,
-      countryCode: body.countryCode?.toUpperCase(),
+      countryCode: body.countryCode,
       services: body.services || [],
     })
 
-    await proxy.save()
-
-    return NextResponse.json({ proxy }, { status: 201 })
+    return NextResponse.json({
+      proxy: {
+        id: proxy.id,
+        uid: proxy.uid,
+        name: proxy.name,
+        countryCode: proxy.countryCode,
+        services: proxy.services.map((s) => ({
+          type: s.type,
+          tokenCost: s.tokenCost ?? 0,
+          isEnabled: s.isEnabled,
+          hideInSearchForm: s.hideInSearchForm ?? false,
+        })),
+      },
+    }, { status: 201 })
   } catch (error) {
     console.error('Create service error:', error)
     return NextResponse.json(

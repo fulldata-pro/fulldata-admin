@@ -40,35 +40,35 @@ export const AccountBillingType = {
 export type AccountBillingTypeValue = (typeof AccountBillingType)[keyof typeof AccountBillingType]
 
 export const ServicesType = {
-  PEOPLE: 'people',
-  COMPANIES: 'companies',
-  VEHICLES: 'vehicles',
-  PHONES: 'phones',
-  BANKS: 'banks',
-  OSINT: 'osint',
-  IDENTITY: 'identity',
+  PEOPLE: 'PEOPLE',
+  COMPANIES: 'COMPANIES',
+  VEHICLES: 'VEHICLES',
+  PHONES: 'PHONES',
+  BANKS: 'BANKS',
+  OSINT: 'OSINT',
+  IDENTITY: 'IDENTITY',
 } as const
 
 export type ServiceType = (typeof ServicesType)[keyof typeof ServicesType]
 
 export const ServiceLabels: Record<ServiceType, string> = {
-  people: 'Personas',
-  companies: 'Empresas',
-  vehicles: 'Vehículos',
-  phones: 'Teléfonos',
-  banks: 'Bancos',
-  osint: 'OSINT',
-  identity: 'Identidad',
+  PEOPLE: 'Personas',
+  COMPANIES: 'Empresas',
+  VEHICLES: 'Vehículos',
+  PHONES: 'Teléfonos',
+  BANKS: 'Bancos',
+  OSINT: 'WEB',
+  IDENTITY: 'Identidad',
 }
 
 export const ServiceColors: Record<ServiceType, string> = {
-  people: '#1E90FF',
-  companies: '#FF4500',
-  vehicles: '#9370DB',
-  phones: '#ffa500',
-  banks: '#0e7490',
-  osint: '#FF6347',
-  identity: '#c9ab02',
+  PEOPLE: '#1E90FF',
+  COMPANIES: '#FF4500',
+  VEHICLES: '#9370DB',
+  PHONES: '#ffa500',
+  BANKS: '#0e7490',
+  OSINT: '#FF6347',
+  IDENTITY: '#c9ab02',
 }
 
 export const ReceiptStatus = {
