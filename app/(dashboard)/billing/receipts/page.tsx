@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { ReceiptStatus } from '@/lib/constants'
-import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
+import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDateTime } from '@/lib/utils/dateUtils'
 import { formatCurrency } from '@/lib/utils/currencyUtils'
 import Image from 'next/image'
@@ -165,6 +165,7 @@ export default function ReceiptsPage() {
     {
       key: 'id',
       header: 'ID',
+      exportValue: (receipt) => receipt.id,
       render: (receipt) => (
         <span className="font-mono text-sm text-gray-600">{receipt.id}</span>
       )
@@ -172,6 +173,7 @@ export default function ReceiptsPage() {
     {
       key: 'account',
       header: 'Cuenta',
+      exportValue: (receipt) => receipt.account?.billingName || receipt.account?.email || 'N/A',
       render: (receipt) => (
         <div className="flex items-center gap-3">
           {receipt.account?.avatar ? (
@@ -199,6 +201,7 @@ export default function ReceiptsPage() {
     {
       key: 'paymentProvider',
       header: 'Pago',
+      exportValue: (receipt) => receipt.paymentProvider || '',
       render: (receipt) => {
         if (!receipt.paymentProvider) {
           return <span className="text-gray-400">-</span>
@@ -236,6 +239,7 @@ export default function ReceiptsPage() {
     {
       key: 'tokens',
       header: 'Tokens',
+      exportValue: (receipt) => receipt.tokens?.quantity || 0,
       render: (receipt) => (
         <div>
           {receipt.tokens ? (
@@ -251,6 +255,7 @@ export default function ReceiptsPage() {
     {
       key: 'subtotal',
       header: 'Subtotal',
+      exportValue: (receipt) => receipt.subtotal,
       render: (receipt) => (
         <p className="text-gray-600">
           {formatCurrency(receipt.subtotal, receipt.currency)}
@@ -260,6 +265,7 @@ export default function ReceiptsPage() {
     {
       key: 'discounts',
       header: 'Descuentos',
+      exportValue: (receipt) => calculateDiscountAmount(receipt),
       render: (receipt) => {
         const hasDiscountCode = receipt.discountCode
         const hasBulkDiscount = receipt.bulkDiscount
@@ -299,6 +305,7 @@ export default function ReceiptsPage() {
     {
       key: 'total',
       header: 'Total',
+      exportValue: (receipt) => receipt.total,
       render: (receipt) => (
         <p className="font-semibold text-gray-900">
           {formatCurrency(receipt.total, receipt.currency)}
@@ -306,8 +313,16 @@ export default function ReceiptsPage() {
       )
     },
     {
+      key: 'currency',
+      header: 'Moneda',
+      exportValue: (receipt) => receipt.currency,
+      render: () => null,
+      className: 'hidden'
+    },
+    {
       key: 'status',
       header: 'Estado',
+      exportValue: (receipt) => getStatusLabel(receipt.status),
       render: (receipt) => (
         <Badge variant={getStatusVariant(receipt.status) as 'success' | 'warning' | 'info' | 'danger' | 'gray'}>
           {getStatusLabel(receipt.status)}
@@ -317,6 +332,7 @@ export default function ReceiptsPage() {
     {
       key: 'invoice',
       header: 'Factura',
+      exportValue: (receipt) => receipt.invoice?.number || receipt.invoice?.uid || '',
       render: (receipt) => {
         if (!receipt.invoice) {
           return <span className="text-gray-400">-</span>
@@ -334,6 +350,7 @@ export default function ReceiptsPage() {
     {
       key: 'expiredAt',
       header: 'Vencimiento',
+      exportValue: (receipt) => receipt.expiredAt ? formatDateTime(receipt.expiredAt) : '',
       render: (receipt) => (
         <span className="text-gray-500 text-sm">
           {receipt.expiredAt ? formatDateTime(receipt.expiredAt) : '-'}
@@ -343,6 +360,7 @@ export default function ReceiptsPage() {
     {
       key: 'createdAt',
       header: 'Creado',
+      exportValue: (receipt) => formatDateTime(receipt.createdAt),
       render: (receipt) => (
         <span className="text-gray-500 text-sm">
           {formatDateTime(receipt.createdAt)}
@@ -350,6 +368,10 @@ export default function ReceiptsPage() {
       )
     }
   ]
+
+  const exportConfig: ExportConfig = {
+    filename: 'recibos'
+  }
 
   const filters: FilterConfig[] = [
     {
@@ -417,6 +439,7 @@ export default function ReceiptsPage() {
         title="Recibos"
         subtitle="Historial de recibos de pago"
         emptyMessage="No se encontraron recibos"
+        exportConfig={exportConfig}
       />
 
       {/* Discount Popup Portal */}

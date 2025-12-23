@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { useEffect, useCallback, useRef } from 'react'
 
 interface NavItem {
   label: string
@@ -15,6 +16,11 @@ interface NavSection {
   title: string
   items: NavItem[]
 }
+
+const MIN_WIDTH = 200
+const MAX_WIDTH = 400
+const DEFAULT_WIDTH = 256
+const STORAGE_KEY = 'sidebar-width'
 
 const navigation: NavSection[] = [
   {
@@ -51,15 +57,55 @@ const navigation: NavSection[] = [
   },
 ]
 
-export default function Sidebar() {
+interface SidebarProps {
+  width: number
+  onWidthChange: (width: number) => void
+}
+
+export default function Sidebar({ width, onWidthChange }: SidebarProps) {
   const pathname = usePathname()
+  const isResizing = useRef(false)
 
   const isActive = (href: string) => {
     return pathname === href
   }
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    isResizing.current = true
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX))
+      onWidthChange(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [onWidthChange])
+
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-secondary overflow-y-auto scrollbar-hide">
+    <aside
+      className="fixed left-0 top-0 z-40 h-screen bg-secondary overflow-y-auto scrollbar-hide"
+      style={{ width: `${width}px` }}
+    >
       <div className="flex flex-col h-full">
         {/* Logo */}
         <div className="flex items-center justify-center h-16 border-b border-white/10">
@@ -115,6 +161,14 @@ export default function Sidebar() {
             <p className="text-xs text-gray-400">Fulldata Admin v1.0</p>
           </div>
         </div>
+      </div>
+
+      {/* Resize handle */}
+      <div
+        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/50 transition-colors group"
+        onMouseDown={handleMouseDown}
+      >
+        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-16 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
     </aside>
   )

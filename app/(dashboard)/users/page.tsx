@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
-import { DataTable, Badge, Avatar, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
+import { DataTable, Badge, Avatar, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDate } from '@/lib/utils/dateUtils'
 
 interface UserAccount {
@@ -49,6 +49,8 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState(searchParams?.get('search') || '')
   const [provider, setProvider] = useState(searchParams?.get('provider') || '')
+  const [dateFrom, setDateFrom] = useState(searchParams?.get('dateFrom') || '')
+  const [dateTo, setDateTo] = useState(searchParams?.get('dateTo') || '')
   const [pageSize, setPageSize] = useState(parseInt(searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE)))
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [hoveredAccounts, setHoveredAccounts] = useState<string | null>(null)
@@ -63,6 +65,8 @@ export default function UsersPage() {
       params.set('limit', String(pageSize))
       if (search) params.set('search', search)
       if (provider) params.set('provider', provider)
+      if (dateFrom) params.set('dateFrom', dateFrom)
+      if (dateTo) params.set('dateTo', dateTo)
 
       const response = await fetch(`/api/users?${params}`)
       if (response.ok) {
@@ -76,7 +80,7 @@ export default function UsersPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [searchParams, search, provider, pageSize])
+  }, [searchParams, search, provider, dateFrom, dateTo, pageSize])
 
   useEffect(() => {
     fetchUsers()
@@ -134,13 +138,17 @@ export default function UsersPage() {
     {
       key: 'id',
       header: 'ID',
+      sortable: true,
       render: (user) => (
         <span className="font-mono text-sm text-gray-600">{user.id}</span>
-      )
+      ),
+      exportValue: (user) => user.id
     },
     {
-      key: 'user',
+      key: 'firstName',
       header: 'Usuario',
+      sortable: true,
+      exportValue: (user) => `${user.firstName} ${user.lastName}`,
       render: (user) => (
         <div className="flex items-center gap-3">
           {user.avatar ? (
@@ -159,8 +167,10 @@ export default function UsersPage() {
       )
     },
     {
-      key: 'contact',
+      key: 'email',
       header: 'Contacto',
+      sortable: true,
+      exportValue: (user) => user.email,
       render: (user) => (
         <div>
           <div className="text-sm text-gray-900">{user.email}</div>
@@ -175,6 +185,7 @@ export default function UsersPage() {
     {
       key: 'provider',
       header: 'Registro',
+      exportValue: (user) => user.provider,
       render: (user) => (
         <Badge variant={user.provider === 'GOOGLE' ? 'info' : 'gray'}>
           {user.provider === 'GOOGLE' ? (
@@ -245,7 +256,9 @@ export default function UsersPage() {
     },
     {
       key: 'createdAt',
-      header: 'Registro',
+      header: 'Fecha registro',
+      sortable: true,
+      exportValue: (user) => formatDate(user.createdAt),
       render: (user) => (
         <span className="text-sm text-gray-500">{formatDate(user.createdAt)}</span>
       )
@@ -275,19 +288,31 @@ export default function UsersPage() {
     {
       key: 'provider',
       type: 'select',
+      label: 'Tipo de registro',
       placeholder: 'Todos',
       options: [
         { value: 'LOCAL', label: 'Email' },
         { value: 'GOOGLE', label: 'Google' },
       ],
-      className: 'w-40'
+    },
+    {
+      key: 'createdAt',
+      type: 'dateRange',
+      label: 'Fecha de registro',
     }
   ]
+
+  const exportConfig: ExportConfig = {
+    filename: 'usuarios',
+    excludeColumns: ['accounts', 'verification']
+  }
 
   const handleFilterSubmit = () => {
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (provider) params.set('provider', provider)
+    if (dateFrom) params.set('dateFrom', dateFrom)
+    if (dateTo) params.set('dateTo', dateTo)
     if (pageSize !== DEFAULT_PAGE_SIZE) params.set('limit', String(pageSize))
     router.push(`/users?${params}`)
   }
@@ -295,6 +320,8 @@ export default function UsersPage() {
   const handleFilterClear = () => {
     setSearch('')
     setProvider('')
+    setDateFrom('')
+    setDateTo('')
     setPageSize(DEFAULT_PAGE_SIZE)
     router.push('/users')
   }
@@ -320,10 +347,17 @@ export default function UsersPage() {
         basePath="/users"
         onPageSizeChange={handlePageSizeChange}
         filters={filters}
-        filterValues={{ search, provider }}
+        filterValues={{
+          search,
+          provider,
+          createdAt_from: dateFrom,
+          createdAt_to: dateTo
+        }}
         onFilterChange={(key, value) => {
           if (key === 'search') setSearch(value)
           if (key === 'provider') setProvider(value)
+          if (key === 'createdAt_from') setDateFrom(value)
+          if (key === 'createdAt_to') setDateTo(value)
         }}
         onFilterSubmit={handleFilterSubmit}
         onFilterClear={handleFilterClear}
@@ -334,6 +368,7 @@ export default function UsersPage() {
         title="Usuarios"
         subtitle="Gestiona los usuarios de la plataforma"
         emptyMessage="No se encontraron usuarios"
+        exportConfig={exportConfig}
       />
 
       {/* Accounts Popup Portal */}

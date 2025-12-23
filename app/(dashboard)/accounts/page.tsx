@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { AccountStatus } from '@/lib/constants'
-import { DataTable, Badge, Code, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
+import { DataTable, Badge, Code, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDate } from '@/lib/utils/dateUtils'
 
 interface AccountUser {
@@ -140,6 +140,7 @@ export default function AccountsPage() {
     {
       key: 'id',
       header: 'ID',
+      exportValue: (account) => account.id,
       render: (account) => (
         <span className="font-mono text-sm text-gray-600">{account.id}</span>
       )
@@ -147,6 +148,7 @@ export default function AccountsPage() {
     {
       key: 'name',
       header: 'Cuenta',
+      exportValue: (account) => account.billing?.name || account.name,
       render: (account) => (
         <Link href={`/accounts/${account._id}`} className="block hover:text-primary transition-colors">
           <div className="font-medium text-gray-900">
@@ -158,6 +160,7 @@ export default function AccountsPage() {
     {
       key: 'type',
       header: 'Tipo',
+      exportValue: (account) => account.type || '',
       render: (account) => (
         <span className="text-gray-600 text-sm">{account.type || '-'}</span>
       )
@@ -165,6 +168,7 @@ export default function AccountsPage() {
     {
       key: 'taxId',
       header: 'CUIT',
+      exportValue: (account) => account.billing?.taxId || '',
       render: (account) => (
         account.billing?.taxId ? (
           <Code>{account.billing.taxId}</Code>
@@ -176,6 +180,7 @@ export default function AccountsPage() {
     {
       key: 'contact',
       header: 'Contacto',
+      exportValue: (account) => account.users[0]?.user.email || '',
       render: (account) => (
         <div className="text-sm">
           {account.users[0]?.user.email && <div className="text-gray-700">{account.users[0]?.user.email}</div>}
@@ -187,6 +192,7 @@ export default function AccountsPage() {
     {
       key: 'status',
       header: 'Estado',
+      exportValue: (account) => account.status,
       render: (account) => (
         <Badge variant={getStatusVariant(account.status) as 'success' | 'warning' | 'danger' | 'gray'}>
           {account.status}
@@ -221,6 +227,7 @@ export default function AccountsPage() {
     {
       key: 'createdAt',
       header: 'Creado',
+      exportValue: (account) => formatDate(account.createdAt),
       render: (account) => (
         <span className="text-gray-500 text-sm">
           {formatDate(account.createdAt)}
@@ -228,6 +235,11 @@ export default function AccountsPage() {
       )
     }
   ]
+
+  const exportConfig: ExportConfig = {
+    filename: 'cuentas',
+    excludeColumns: ['users']
+  }
 
   const filters: FilterConfig[] = [
     {
@@ -330,6 +342,7 @@ export default function AccountsPage() {
           </Link>
         }
         emptyMessage="No se encontraron cuentas"
+        exportConfig={exportConfig}
       />
 
       {/* Users Popup Portal */}

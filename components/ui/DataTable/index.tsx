@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useState, useEffect, useRef, useCallback } from 'react'
+import { ReactNode, useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Checkbox } from '@/components/ui/Checkbox'
@@ -14,12 +14,16 @@ export interface Column<T> {
   className?: string
   headerClassName?: string
   sortable?: boolean
+  /** Key to use for export (defaults to column key) */
+  exportKey?: string
+  /** Custom export formatter */
+  exportValue?: (item: T) => string | number
 }
 
 export interface FilterConfig {
   key: string
   label?: string
-  type: 'text' | 'select'
+  type: 'text' | 'select' | 'date' | 'dateRange'
   placeholder?: string
   options?: { value: string; label: string }[]
   icon?: ReactNode
@@ -39,6 +43,24 @@ export interface Pagination {
   limit: number
   total: number
   pages: number
+}
+
+export interface ExportConfig {
+  /** Filename without extension */
+  filename?: string
+  /** Custom data transformer before export */
+  transformData?: (data: unknown[]) => unknown[]
+  /** Columns to include (defaults to all visible columns) */
+  includeColumns?: string[]
+  /** Columns to exclude from export */
+  excludeColumns?: string[]
+}
+
+export type SortDirection = 'asc' | 'desc' | null
+
+export interface SortConfig {
+  key: string
+  direction: SortDirection
 }
 
 export interface DataTableProps<T> {
@@ -61,6 +83,15 @@ export interface DataTableProps<T> {
   onFilterSubmit?: () => void
   onFilterClear?: () => void
   showFilters?: boolean
+  /** Enable instant search with debounce (ms). Set to 0 to disable */
+  searchDebounce?: number
+
+  // Sorting
+  sortable?: boolean
+  defaultSort?: SortConfig
+  onSortChange?: (sort: SortConfig | null) => void
+  /** If true, sorting is handled server-side via onSortChange callback */
+  serverSideSort?: boolean
 
   // Selection
   selectable?: boolean
@@ -80,12 +111,42 @@ export interface DataTableProps<T> {
   showHeader?: boolean
 
   // Export
+  exportConfig?: ExportConfig
+  /** @deprecated Use exportConfig instead */
   exportData?: () => void
-  exportLabel?: string
 
   // Styling
   glass?: boolean
   compact?: boolean
+}
+
+// Export utilities
+function downloadFile(content: string | Blob, filename: string, mimeType: string) {
+  const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+// Debounce hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    if (delay <= 0) {
+      setDebouncedValue(value)
+      return
+    }
+    const handler = setTimeout(() => setDebouncedValue(value), delay)
+    return () => clearTimeout(handler)
+  }, [value, delay])
+
+  return debouncedValue
 }
 
 // Main DataTable Component
@@ -104,6 +165,11 @@ export function DataTable<T>({
   onFilterSubmit,
   onFilterClear,
   showFilters = true,
+  searchDebounce = 0,
+  sortable = false,
+  defaultSort,
+  onSortChange,
+  serverSideSort = false,
   selectable = false,
   selectedItems = [],
   onSelectionChange,
@@ -115,8 +181,8 @@ export function DataTable<T>({
   subtitle,
   headerAction,
   showHeader = true,
+  exportConfig,
   exportData,
-  exportLabel = 'Exportar',
   glass = true,
   compact = false,
 }: DataTableProps<T>) {
@@ -126,6 +192,75 @@ export function DataTable<T>({
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; showAbove: boolean } | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const actionButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
+
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(defaultSort || null)
+
+  // Filters popover state
+  const [filtersPopoverOpen, setFiltersPopoverOpen] = useState(false)
+  const [filtersPopoverPosition, setFiltersPopoverPosition] = useState<{ top: number; left: number } | null>(null)
+  const filtersButtonRef = useRef<HTMLButtonElement>(null)
+  const filtersPopoverRef = useRef<HTMLDivElement>(null)
+
+  // Temporary filter values for popover (only applied on "Aplicar" click)
+  const [tempFilterValues, setTempFilterValues] = useState<Record<string, string>>({})
+
+  // Sync temp values when popover opens
+  useEffect(() => {
+    if (filtersPopoverOpen) {
+      setTempFilterValues({ ...filterValues })
+    }
+  }, [filtersPopoverOpen, filterValues])
+
+  // Debounced search
+  const searchFilter = filters?.find(f => f.type === 'text')
+  const searchValue = searchFilter ? filterValues[searchFilter.key] || '' : ''
+  const debouncedSearchValue = useDebounce(searchValue, searchDebounce)
+
+  // Trigger search on debounced value change
+  useEffect(() => {
+    if (searchDebounce > 0 && debouncedSearchValue !== undefined && onFilterSubmit) {
+      onFilterSubmit()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearchValue])
+
+  // Handle filters popover toggle
+  const handleFiltersPopoverToggle = useCallback(() => {
+    if (filtersPopoverOpen) {
+      setFiltersPopoverOpen(false)
+      setFiltersPopoverPosition(null)
+    } else {
+      if (filtersButtonRef.current) {
+        const rect = filtersButtonRef.current.getBoundingClientRect()
+        setFiltersPopoverPosition({
+          top: rect.bottom + 8,
+          left: rect.left
+        })
+      }
+      setFiltersPopoverOpen(true)
+    }
+  }, [filtersPopoverOpen])
+
+  // Close filters popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+
+      // Check if click is inside a Select portal (dropdown options)
+      const isSelectPortalClick = target.closest('[data-select-portal]') || target.closest('[data-select]')
+
+      // Don't close filters popover if clicking inside Select components
+      if (filtersPopoverRef.current && !filtersPopoverRef.current.contains(event.target as Node) &&
+          filtersButtonRef.current && !filtersButtonRef.current.contains(event.target as Node) &&
+          !isSelectPortalClick) {
+        setFiltersPopoverOpen(false)
+        setFiltersPopoverPosition(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -174,9 +309,144 @@ export function DataTable<T>({
     onFilterSubmit?.()
   }
 
+  // Sorting handlers
+  const handleSort = (columnKey: string) => {
+    const column = columns.find(c => c.key === columnKey)
+    if (!column?.sortable && !sortable) return
+
+    let newSort: SortConfig | null
+    if (sortConfig?.key === columnKey) {
+      if (sortConfig.direction === 'asc') {
+        newSort = { key: columnKey, direction: 'desc' }
+      } else if (sortConfig.direction === 'desc') {
+        newSort = null
+      } else {
+        newSort = { key: columnKey, direction: 'asc' }
+      }
+    } else {
+      newSort = { key: columnKey, direction: 'asc' }
+    }
+
+    setSortConfig(newSort)
+    onSortChange?.(newSort)
+  }
+
+  // Sort data client-side if not server-side sorting
+  const sortedData = useMemo(() => {
+    if (serverSideSort || !sortConfig) return data
+
+    return [...data].sort((a, b) => {
+      const aVal = (a as Record<string, unknown>)[sortConfig.key]
+      const bVal = (b as Record<string, unknown>)[sortConfig.key]
+
+      if (aVal === bVal) return 0
+      if (aVal === null || aVal === undefined) return 1
+      if (bVal === null || bVal === undefined) return -1
+
+      const comparison = aVal < bVal ? -1 : 1
+      return sortConfig.direction === 'asc' ? comparison : -comparison
+    })
+  }, [data, sortConfig, serverSideSort])
+
+  // Export handlers
+  const getExportColumns = useCallback(() => {
+    if (!exportConfig) return columns
+
+    let exportCols = columns
+    if (exportConfig.includeColumns?.length) {
+      exportCols = columns.filter(c => exportConfig.includeColumns!.includes(c.key))
+    }
+    if (exportConfig.excludeColumns?.length) {
+      exportCols = exportCols.filter(c => !exportConfig.excludeColumns!.includes(c.key))
+    }
+    return exportCols
+  }, [columns, exportConfig])
+
+  const getExportData = useCallback(() => {
+    const exportCols = getExportColumns()
+    // Only export selected items
+    const dataToExport = sortedData.filter(item => selectedItems.includes(keyExtractor(item)))
+
+    const rawData = dataToExport.map(item => {
+      const row: Record<string, unknown> = {}
+      exportCols.forEach(col => {
+        const key = col.exportKey || col.key
+        if (col.exportValue) {
+          row[key] = col.exportValue(item)
+        } else {
+          row[key] = (item as Record<string, unknown>)[col.key]
+        }
+      })
+      return row
+    })
+
+    if (exportConfig?.transformData) {
+      return exportConfig.transformData(rawData)
+    }
+    return rawData
+  }, [sortedData, getExportColumns, exportConfig, selectedItems, keyExtractor])
+
+  const handleExportExcel = useCallback(() => {
+    // Excel XML format (simple approach without external libraries)
+    const exportCols = getExportColumns()
+    const exportRows = getExportData() as Record<string, unknown>[]
+
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml += '<?mso-application progid="Excel.Sheet"?>\n'
+    xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n'
+    xml += '  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n'
+    xml += '  <Worksheet ss:Name="Datos">\n'
+    xml += '    <Table>\n'
+
+    // Headers
+    xml += '      <Row>\n'
+    exportCols.forEach(col => {
+      xml += `        <Cell><Data ss:Type="String">${col.header}</Data></Cell>\n`
+    })
+    xml += '      </Row>\n'
+
+    // Data rows
+    exportRows.forEach(row => {
+      xml += '      <Row>\n'
+      exportCols.forEach(col => {
+        const value = row[col.exportKey || col.key]
+        const type = typeof value === 'number' ? 'Number' : 'String'
+        const safeValue = String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        xml += `        <Cell><Data ss:Type="${type}">${safeValue}</Data></Cell>\n`
+      })
+      xml += '      </Row>\n'
+    })
+
+    xml += '    </Table>\n'
+    xml += '  </Worksheet>\n'
+    xml += '</Workbook>'
+
+    const filename = `${exportConfig?.filename || 'export'}.xlsx`
+    downloadFile(xml, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  }, [getExportColumns, getExportData, exportConfig])
+
+  const hasExport = exportConfig || exportData
+  const canExport = hasExport && selectedItems.length > 0
+
+  // Separate text filter (search) from other filters
+  const textFilter = filters?.find(f => f.type === 'text')
+  const otherFilters = filters?.filter(f => f.type !== 'text') || []
+
+  // Count active filters (excluding search)
+  const activeFiltersCount = otherFilters.reduce((count, filter) => {
+    if (filter.type === 'dateRange') {
+      const fromValue = filterValues[`${filter.key}_from`]
+      const toValue = filterValues[`${filter.key}_to`]
+      if (fromValue || toValue) return count + 1
+    } else if (filterValues[filter.key]) {
+      return count + 1
+    }
+    return count
+  }, 0)
+
   // Selection handlers
-  const allKeys = data.map(keyExtractor)
-  const isAllSelected = selectable && data.length > 0 && allKeys.every((key) => selectedItems.includes(key))
+  const allKeys = sortedData.map(keyExtractor)
+  const isAllSelected = selectable && sortedData.length > 0 && allKeys.every((key) => selectedItems.includes(key))
   const isSomeSelected = selectable && selectedItems.length > 0 && !isAllSelected
 
   const handleSelectAll = () => {
@@ -198,91 +468,105 @@ export function DataTable<T>({
   }
 
   const totalColumns = columns.length + (actions ? 1 : 0) + (selectable ? 1 : 0)
-  const cellPadding = compact ? 'px-4 py-3' : 'px-6 py-4'
-  const headerPadding = compact ? 'px-4 py-2.5' : 'px-6 py-3'
+  const cellPadding = compact ? 'px-5 py-3.5' : 'px-6 py-5'
+  const headerPadding = compact ? 'px-5 py-3' : 'px-6 py-4'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       {showHeader && (title || headerAction) && (
         <div className="flex items-center justify-between">
           <div>
-            {title && <h1 className="text-2xl font-bold text-secondary">{title}</h1>}
-            {subtitle && <p className="text-gray-500 mt-1">{subtitle}</p>}
+            {title && <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">{title}</h1>}
+            {subtitle && <p className="text-slate-500 mt-1.5 text-sm">{subtitle}</p>}
           </div>
           {headerAction}
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters Bar */}
       {showFilters && filters && filters.length > 0 && (
-        <div className={glass ? 'card-glass' : 'card'}>
-          <form onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-4">
-            {filters.map((filter) => (
-              <div key={filter.key} className={filter.className || (filter.type === 'text' ? 'flex-1 min-w-[200px]' : 'w-48')}>
-                {filter.label && <label className="label">{filter.label}</label>}
-                {filter.type === 'text' ? (
-                  <div className="relative">
-                    {filter.icon && (
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                        {filter.icon}
-                      </div>
-                    )}
-                    <input
-                      type="text"
-                      value={filterValues[filter.key] || ''}
-                      onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-                      className={`input-field ${filter.icon ? 'pl-10' : ''}`}
-                      placeholder={filter.placeholder}
-                    />
-                  </div>
-                ) : (
-                  <select
-                    value={filterValues[filter.key] || ''}
-                    onChange={(e) => onFilterChange?.(filter.key, e.target.value)}
-                    className="input-field"
-                  >
-                    <option value="">{filter.placeholder || 'Todos'}</option>
-                    {filter.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <button type="submit" className="btn-secondary">
-                Filtrar
-              </button>
-              {onFilterClear && (
-                <button type="button" onClick={onFilterClear} className="btn-outline">
-                  Limpiar
-                </button>
-              )}
-              {exportData && (
-                <button type="button" onClick={exportData} className="btn-outline flex items-center gap-2">
-                  <i className="ki-duotone ki-exit-down text-lg">
+        <div className={`${glass ? 'bg-white/70 backdrop-blur-xl border border-white/40 shadow-lg shadow-slate-200/50' : 'bg-white border border-slate-200 shadow-sm'} rounded-2xl p-4`}>
+          <form onSubmit={handleFilterSubmit} className="flex items-center gap-4">
+            {/* Search input (left side) */}
+            {textFilter && (
+              <div className="flex-1 min-w-[220px] max-w-md relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors group-focus-within:text-primary">
+                  <i className="ki-duotone ki-magnifier text-lg">
                     <span className="path1"></span>
                     <span className="path2"></span>
                   </i>
-                  {exportLabel}
-                </button>
-              )}
-            </div>
+                </div>
+                <input
+                  type="text"
+                  value={filterValues[textFilter.key] || ''}
+                  onChange={(e) => onFilterChange?.(textFilter.key, e.target.value)}
+                  className="w-full h-11 pl-11 pr-4 bg-slate-50/80 border border-slate-200/60 rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 focus:bg-white transition-all duration-200"
+                  placeholder={textFilter.placeholder || 'Buscar...'}
+                />
+              </div>
+            )}
+
+            {/* Filters button (opens popover) */}
+            {otherFilters.length > 0 && (
+              <button
+                ref={filtersButtonRef}
+                type="button"
+                onClick={handleFiltersPopoverToggle}
+                className={`inline-flex items-center gap-2.5 h-11 px-4 text-sm font-medium rounded-xl border transition-all duration-200 ${
+                  activeFiltersCount > 0
+                    ? 'bg-primary/5 border-primary/30 text-primary hover:bg-primary/10'
+                    : 'bg-white/80 border-slate-200/60 text-slate-600 hover:bg-slate-50 hover:border-slate-300/60'
+                }`}
+              >
+                <i className="ki-duotone ki-filter text-lg">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+                Filtros
+                {activeFiltersCount > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 text-[11px] font-semibold bg-primary text-white rounded-full">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Export button (right side) - only enabled when items are selected */}
+            {hasExport && (
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                disabled={!canExport}
+                className={`inline-flex items-center gap-2.5 h-11 px-4 text-sm font-medium rounded-xl border transition-all duration-200 ${
+                  canExport
+                    ? 'bg-white/80 border-slate-200/60 text-slate-600 hover:bg-slate-50 hover:border-slate-300/60'
+                    : 'bg-slate-50/50 border-slate-200/40 text-slate-400 cursor-not-allowed'
+                }`}
+                title={canExport ? `Exportar ${selectedItems.length} elemento(s)` : 'Selecciona elementos para exportar'}
+              >
+                <i className="ki-duotone ki-exit-down text-lg">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+                Exportar{selectedItems.length > 0 ? ` (${selectedItems.length})` : ''}
+              </button>
+            )}
           </form>
         </div>
       )}
 
       {/* Table */}
-      <div className={`${glass ? 'bg-white/60 backdrop-blur-sm border border-slate-200/40' : 'bg-white border border-gray-200'} rounded-2xl shadow-sm overflow-hidden`}>
+      <div className={`${glass ? 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-xl shadow-slate-200/40' : 'bg-white border border-slate-200 shadow-sm'} rounded-2xl overflow-hidden`}>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className={`${glass ? 'bg-slate-50/80 backdrop-blur-sm' : 'bg-gray-50'}`}>
+            <thead className={`${glass ? 'bg-gradient-to-b from-slate-50/90 to-slate-100/70 backdrop-blur-sm' : 'bg-slate-50'}`}>
               <tr>
                 {selectable && (
-                  <th className={`${headerPadding} w-12`}>
+                  <th className={`${headerPadding} w-14`}>
                     <Checkbox
                       checked={isAllSelected}
                       indeterminate={isSomeSelected}
@@ -291,64 +575,77 @@ export function DataTable<T>({
                     />
                   </th>
                 )}
-                {columns.map((column) => (
-                  <th
-                    key={column.key}
-                    className={`${headerPadding} text-left text-xs font-semibold text-slate-600 uppercase tracking-wider ${column.headerClassName || ''}`}
-                  >
-                    {column.header}
-                  </th>
-                ))}
+                {columns.map((column) => {
+                  const isSortable = column.sortable || sortable
+                  const isCurrentSort = sortConfig?.key === column.key
+                  return (
+                    <th
+                      key={column.key}
+                      className={`${headerPadding} text-left text-[11px] font-semibold text-slate-500 uppercase tracking-wider ${column.headerClassName || ''} ${isSortable ? 'cursor-pointer select-none hover:bg-slate-100/60 transition-colors duration-150' : ''}`}
+                      onClick={isSortable ? () => handleSort(column.key) : undefined}
+                    >
+                      <div className="flex items-center gap-2">
+                        {column.header}
+                        {isSortable && (
+                          <span className={`flex flex-col ${isCurrentSort ? 'text-primary' : 'text-slate-300'}`}>
+                            <i className={`ki-solid ki-up text-[8px] -mb-0.5 ${isCurrentSort && sortConfig?.direction === 'asc' ? 'text-primary' : ''}`}></i>
+                            <i className={`ki-solid ki-down text-[8px] ${isCurrentSort && sortConfig?.direction === 'desc' ? 'text-primary' : ''}`}></i>
+                          </span>
+                        )}
+                      </div>
+                    </th>
+                  )
+                })}
                 {actions && <th className={`${headerPadding} w-16`}></th>}
               </tr>
             </thead>
-            <tbody className="bg-white/80 backdrop-blur-sm divide-y divide-slate-200/40">
+            <tbody className={`${glass ? 'bg-white/60 backdrop-blur-sm' : 'bg-white'}`}>
               {isLoading ? (
                 <tr>
-                  <td colSpan={totalColumns} className={`${cellPadding} text-center py-16`}>
-                    <div className="flex flex-col items-center gap-3">
+                  <td colSpan={totalColumns} className={`${cellPadding} text-center py-20`}>
+                    <div className="flex flex-col items-center gap-4">
                       <div className="relative">
-                        <div className="w-10 h-10 border-4 border-primary/20 rounded-full"></div>
-                        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                        <div className="w-12 h-12 border-4 border-primary/10 rounded-full"></div>
+                        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
                       </div>
-                      <span className="text-sm text-gray-400">Cargando...</span>
+                      <span className="text-sm text-slate-400 font-medium">Cargando...</span>
                     </div>
                   </td>
                 </tr>
-              ) : data.length === 0 ? (
+              ) : sortedData.length === 0 ? (
                 <tr>
-                  <td colSpan={totalColumns} className={`${cellPadding} text-center py-16`}>
-                    <div className="flex flex-col items-center gap-3">
+                  <td colSpan={totalColumns} className={`${cellPadding} text-center py-20`}>
+                    <div className="flex flex-col items-center gap-4">
                       {emptyIcon || (
-                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
-                          <i className="ki-duotone ki-folder text-3xl text-gray-300">
+                        <div className="w-16 h-16 rounded-2xl bg-slate-100/80 flex items-center justify-center">
+                          <i className="ki-duotone ki-folder text-3xl text-slate-300">
                             <span className="path1"></span>
                             <span className="path2"></span>
                           </i>
                         </div>
                       )}
-                      <p className="text-gray-500">{emptyMessage}</p>
+                      <p className="text-slate-500 font-medium">{emptyMessage}</p>
                     </div>
                   </td>
                 </tr>
               ) : (
-                data.map((item, index) => {
+                sortedData.map((item, index) => {
                   const key = keyExtractor(item)
                   const isSelected = selectedItems.includes(key)
                   return (
                     <tr
                       key={key}
                       className={`
-                        transition-all duration-200
+                        transition-all duration-150 ease-out
                         ${onRowClick ? 'cursor-pointer' : ''}
-                        ${glass ? 'hover:bg-slate-50/40' : 'hover:bg-gray-50'}
-                        ${isSelected ? 'bg-primary/5' : ''}
-                        ${index < data.length - 1 ? 'border-b border-slate-200/30' : ''}
+                        ${glass ? 'hover:bg-slate-50/70' : 'hover:bg-slate-50'}
+                        ${isSelected ? 'bg-primary/[0.04]' : ''}
+                        ${index < sortedData.length - 1 ? 'border-b border-slate-100' : ''}
                       `}
                       onClick={() => onRowClick?.(item)}
                     >
                       {selectable && (
-                        <td className={`${cellPadding} w-12`}>
+                        <td className={`${cellPadding} w-14`}>
                           <Checkbox
                             checked={isSelected}
                             onChange={() => handleSelectItem(key)}
@@ -359,7 +656,7 @@ export function DataTable<T>({
                       {columns.map((column) => (
                         <td
                           key={column.key}
-                          className={`${cellPadding} whitespace-nowrap text-sm text-gray-900 ${column.className || ''}`}
+                          className={`${cellPadding} whitespace-nowrap text-[13px] text-slate-700 ${column.className || ''}`}
                         >
                           {column.render ? column.render(item, index) : String((item as Record<string, unknown>)[column.key] ?? '')}
                         </td>
@@ -371,7 +668,7 @@ export function DataTable<T>({
                               if (el) actionButtonRefs.current.set(key, el)
                             }}
                             onClick={() => handleOpenDropdown(key)}
-                            className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 rounded-lg transition-all duration-150"
                           >
                             <i className="ki-solid ki-dots-vertical text-lg"></i>
                           </button>
@@ -387,16 +684,16 @@ export function DataTable<T>({
 
         {/* Pagination */}
         {pagination && (pagination.pages > 1 || onPageSizeChange) && (
-          <div className={`flex items-center justify-between px-6 py-4 border-t ${glass ? 'border-gray-100/50 bg-gray-50/30' : 'border-gray-100'}`}>
-            <div className="flex items-center gap-4">
-              <p className="text-sm text-gray-500">
-                Mostrando <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> a{' '}
-                <span className="font-medium">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de{' '}
-                <span className="font-medium">{pagination.total}</span> resultados
+          <div className={`flex items-center justify-between px-6 py-4 border-t ${glass ? 'border-slate-100/80 bg-slate-50/50 backdrop-blur-sm' : 'border-slate-100 bg-slate-50/80'}`}>
+            <div className="flex items-center gap-5">
+              <p className="text-[13px] text-slate-500">
+                Mostrando <span className="font-semibold text-slate-700">{(pagination.page - 1) * pagination.limit + 1}</span> a{' '}
+                <span className="font-semibold text-slate-700">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> de{' '}
+                <span className="font-semibold text-slate-700">{pagination.total}</span> resultados
               </p>
               {onPageSizeChange && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Mostrar</span>
+                  <span className="text-[13px] text-slate-500">Mostrar</span>
                   <Select
                     value={String(pagination.limit)}
                     onChange={(value) => onPageSizeChange(Number(value))}
@@ -408,16 +705,16 @@ export function DataTable<T>({
                     fullWidth={false}
                     className="w-16"
                   />
-                  <span className="text-sm text-gray-500">por página</span>
+                  <span className="text-[13px] text-slate-500">por página</span>
                 </div>
               )}
             </div>
             {pagination.pages > 1 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-slate-600 bg-white/80 border border-slate-200/60 rounded-xl hover:bg-white hover:border-slate-300/60 hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/80 disabled:hover:border-slate-200/60 disabled:hover:shadow-none transition-all duration-150"
                 >
                   <i className="ki-duotone ki-arrow-left text-base">
                     <span className="path1"></span>
@@ -425,7 +722,7 @@ export function DataTable<T>({
                   </i>
                   Anterior
                 </button>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 mx-1">
                   {Array.from({ length: Math.min(5, pagination.pages) }, (_, i) => {
                     let pageNum: number
                     if (pagination.pages <= 5) {
@@ -441,10 +738,10 @@ export function DataTable<T>({
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}
-                        className={`w-8 h-8 text-sm font-medium rounded-lg transition-colors ${
+                        className={`w-9 h-9 text-[13px] font-medium rounded-xl transition-all duration-150 ${
                           pagination.page === pageNum
-                            ? 'bg-primary text-white'
-                            : 'text-gray-700 hover:bg-gray-100'
+                            ? 'bg-primary text-white shadow-md shadow-primary/25'
+                            : 'text-slate-600 hover:bg-slate-100/80'
                         }`}
                       >
                         {pageNum}
@@ -455,7 +752,7 @@ export function DataTable<T>({
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.pages}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-slate-600 bg-white/80 border border-slate-200/60 rounded-xl hover:bg-white hover:border-slate-300/60 hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/80 disabled:hover:border-slate-200/60 disabled:hover:shadow-none transition-all duration-150"
                 >
                   Siguiente
                   <i className="ki-duotone ki-arrow-right text-base">
@@ -469,11 +766,116 @@ export function DataTable<T>({
         )}
       </div>
 
+      {/* Filters Popover Portal */}
+      {filtersPopoverOpen && filtersPopoverPosition && otherFilters.length > 0 && typeof window !== 'undefined' && createPortal(
+        <div
+          ref={filtersPopoverRef}
+          className="fixed bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-slate-200/50 border border-white/60 p-5 z-[99999] animate-fade-in min-w-[300px]"
+          style={{
+            top: `${filtersPopoverPosition.top}px`,
+            left: `${filtersPopoverPosition.left}px`,
+          }}
+        >
+          <div className="space-y-5">
+            {otherFilters.map((filter) => (
+              <div key={filter.key} className={filter.className}>
+                {filter.label && (
+                  <label className="block text-[13px] font-medium text-slate-700 mb-2">{filter.label}</label>
+                )}
+                {filter.type === 'select' && (
+                  <Select
+                    value={tempFilterValues[filter.key] || ''}
+                    onChange={(value) => setTempFilterValues(prev => ({ ...prev, [filter.key]: value }))}
+                    options={[
+                      { value: '', label: filter.placeholder || 'Todos' },
+                      ...(filter.options || [])
+                    ]}
+                    fullWidth
+                  />
+                )}
+                {filter.type === 'date' && (
+                  <input
+                    type="date"
+                    value={tempFilterValues[filter.key] || ''}
+                    onChange={(e) => setTempFilterValues(prev => ({ ...prev, [filter.key]: e.target.value }))}
+                    className="w-full h-10 px-3 bg-slate-50/80 border border-slate-200/60 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200"
+                  />
+                )}
+                {filter.type === 'dateRange' && (
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs text-slate-500 mb-1.5">Desde</label>
+                      <input
+                        type="date"
+                        value={tempFilterValues[`${filter.key}_from`] || ''}
+                        onChange={(e) => setTempFilterValues(prev => ({ ...prev, [`${filter.key}_from`]: e.target.value }))}
+                        className="w-full h-10 px-3 bg-slate-50/80 border border-slate-200/60 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-slate-500 mb-1.5">Hasta</label>
+                      <input
+                        type="date"
+                        value={tempFilterValues[`${filter.key}_to`] || ''}
+                        onChange={(e) => setTempFilterValues(prev => ({ ...prev, [`${filter.key}_to`]: e.target.value }))}
+                        className="w-full h-10 px-3 bg-slate-50/80 border border-slate-200/60 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div className="flex gap-3 pt-4 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  // Clear temp values and apply
+                  otherFilters.forEach(filter => {
+                    if (filter.type === 'dateRange') {
+                      onFilterChange?.(`${filter.key}_from`, '')
+                      onFilterChange?.(`${filter.key}_to`, '')
+                    } else {
+                      onFilterChange?.(filter.key, '')
+                    }
+                  })
+                  setTempFilterValues({})
+                  onFilterSubmit?.()
+                  setFiltersPopoverOpen(false)
+                  setFiltersPopoverPosition(null)
+                }}
+                className="flex-1 h-10 text-[13px] font-medium text-slate-600 bg-slate-100/80 hover:bg-slate-200/80 rounded-xl transition-all duration-150"
+              >
+                Limpiar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Apply temp values to actual filter values
+                  Object.entries(tempFilterValues).forEach(([key, value]) => {
+                    onFilterChange?.(key, value)
+                  })
+                  // Small delay to ensure state is updated before submit
+                  setTimeout(() => {
+                    onFilterSubmit?.()
+                  }, 0)
+                  setFiltersPopoverOpen(false)
+                  setFiltersPopoverPosition(null)
+                }}
+                className="flex-1 h-10 text-[13px] font-medium text-white bg-primary hover:bg-primary/90 rounded-xl shadow-md shadow-primary/25 transition-all duration-150"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Actions Dropdown Portal */}
       {openDropdown && dropdownPosition && actions && typeof window !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-56 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-[99999] animate-fade-in"
+          className="fixed w-56 bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl shadow-slate-200/50 border border-white/60 overflow-hidden z-[99999] animate-fade-in"
           style={{
             top: dropdownPosition.showAbove ? 'auto' : `${dropdownPosition.top}px`,
             bottom: dropdownPosition.showAbove ? `${window.innerHeight - dropdownPosition.top + 4}px` : 'auto',
@@ -482,11 +884,11 @@ export function DataTable<T>({
         >
           {actions
             .filter((action) => {
-              const item = data.find((d) => keyExtractor(d) === openDropdown)
+              const item = sortedData.find((d) => keyExtractor(d) === openDropdown)
               return item && (!action.show || action.show(item))
             })
             .map((action, actionIndex, filteredActions) => {
-              const item = data.find((d) => keyExtractor(d) === openDropdown)
+              const item = sortedData.find((d) => keyExtractor(d) === openDropdown)
               if (!item) return null
               return (
                 <button
@@ -496,13 +898,13 @@ export function DataTable<T>({
                     setOpenDropdown(null)
                     setDropdownPosition(null)
                   }}
-                  className={`w-full text-left flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
-                    actionIndex < filteredActions.length - 1 ? 'border-b border-gray-100' : ''
+                  className={`w-full text-left flex items-center gap-3 px-4 py-3.5 text-[13px] font-medium transition-all duration-150 ${
+                    actionIndex < filteredActions.length - 1 ? 'border-b border-slate-100' : ''
                   } ${
-                    action.className || 'text-gray-700 hover:bg-gray-50'
+                    action.className || 'text-slate-700 hover:bg-slate-50/80'
                   }`}
                 >
-                  <span className="text-lg">{action.icon}</span>
+                  <span className="text-lg opacity-70">{action.icon}</span>
                   {action.label}
                 </button>
               )
@@ -525,16 +927,16 @@ export function Badge({
   className?: string
 }) {
   const variants = {
-    success: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20',
-    warning: 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20',
-    danger: 'bg-red-50 text-red-700 ring-1 ring-red-600/20',
-    info: 'bg-blue-50 text-blue-700 ring-1 ring-blue-600/20',
-    gray: 'bg-gray-100 text-gray-700 ring-1 ring-gray-500/20',
-    purple: 'bg-purple-50 text-purple-700 ring-1 ring-purple-600/20',
+    success: 'bg-emerald-50/80 text-emerald-700 ring-1 ring-emerald-500/25',
+    warning: 'bg-amber-50/80 text-amber-700 ring-1 ring-amber-500/25',
+    danger: 'bg-red-50/80 text-red-700 ring-1 ring-red-500/25',
+    info: 'bg-blue-50/80 text-blue-700 ring-1 ring-blue-500/25',
+    gray: 'bg-slate-100/80 text-slate-600 ring-1 ring-slate-400/20',
+    purple: 'bg-purple-50/80 text-purple-700 ring-1 ring-purple-500/25',
   }
 
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variants[variant]} ${className}`}>
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-wide ${variants[variant]} ${className}`}>
       {children}
     </span>
   )
@@ -552,9 +954,9 @@ export function Avatar({
   gradient?: boolean
 }) {
   const sizes = {
-    sm: 'w-8 h-8 text-xs',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-base',
+    sm: 'w-8 h-8 text-[11px]',
+    md: 'w-10 h-10 text-[13px]',
+    lg: 'w-12 h-12 text-sm',
   }
 
   const initials = name
@@ -568,9 +970,9 @@ export function Avatar({
     <div
       className={`
         ${sizes[size]}
-        rounded-full flex items-center justify-center font-semibold
+        rounded-xl flex items-center justify-center font-semibold tracking-wide
         ${gradient
-          ? 'bg-gradient-to-br from-secondary to-secondary-light text-white'
+          ? 'bg-gradient-to-br from-secondary to-secondary-light text-white shadow-md shadow-secondary/20'
           : 'bg-primary/10 text-primary'
         }
         ${className}
@@ -583,7 +985,7 @@ export function Avatar({
 
 export function Code({ children }: { children: ReactNode }) {
   return (
-    <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono text-gray-700">
+    <code className="px-2 py-1 bg-slate-100/80 rounded-md text-[13px] font-mono text-slate-700">
       {children}
     </code>
   )
@@ -591,7 +993,7 @@ export function Code({ children }: { children: ReactNode }) {
 
 export function ActionIcon({
   icon,
-  className = 'text-gray-500'
+  className = 'text-slate-500'
 }: {
   icon: string
   className?: string

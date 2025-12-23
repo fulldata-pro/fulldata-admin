@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { InvoiceTypes, ROUTES } from '@/lib/constants'
-import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
+import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDateTime, formatDate } from '@/lib/utils/dateUtils'
 import { formatCurrency } from '@/lib/utils/currencyUtils'
 
@@ -101,6 +101,7 @@ export default function InvoicesPage() {
     {
       key: 'invoice',
       header: 'Factura',
+      exportValue: (invoice) => invoice.displayNumber,
       render: (invoice) => (
         <span className="font-medium text-gray-900 font-mono">
           {invoice.displayNumber}
@@ -110,6 +111,7 @@ export default function InvoicesPage() {
     {
       key: 'type',
       header: 'Tipo',
+      exportValue: (invoice) => invoice.type === 'AFIP' && invoice.afipData ? `FA-${invoice.afipData.billType}` : (invoiceTypeLabels[invoice.type] || invoice.type),
       render: (invoice) => {
         if (invoice.type === 'AFIP' && invoice.afipData) {
           const colors = billTypeColors[invoice.afipData.billType] || { bg: 'bg-gray-100', text: 'text-gray-700' }
@@ -129,6 +131,7 @@ export default function InvoicesPage() {
     {
       key: 'client',
       header: 'Cliente',
+      exportValue: (invoice) => invoice.afipData?.customer?.name || invoice.account?.billingName || invoice.account?.email || 'N/A',
       render: (invoice) => {
         // Prioridad: datos AFIP > datos de cuenta
         const customerName = invoice.afipData?.customer?.name || invoice.account?.billingName || invoice.account?.email || 'N/A'
@@ -152,8 +155,16 @@ export default function InvoicesPage() {
       }
     },
     {
+      key: 'taxId',
+      header: 'CUIT',
+      exportValue: (invoice) => invoice.afipData?.customer?.taxId || invoice.account?.taxId || '',
+      render: () => null,
+      className: 'hidden'
+    },
+    {
       key: 'cae',
       header: 'CAE',
+      exportValue: (invoice) => invoice.afipData?.cae || '',
       render: (invoice) => (
         invoice.afipData?.cae ? (
           <div>
@@ -172,6 +183,10 @@ export default function InvoicesPage() {
     {
       key: 'amount',
       header: 'Monto',
+      exportValue: (invoice) => {
+        const total = invoice.afipData?.total ?? invoice.receipt?.total
+        return total !== undefined ? total : ''
+      },
       render: (invoice) => {
         // Usar monto de AFIP data si está disponible, sino del receipt
         const total = invoice.afipData?.total ?? invoice.receipt?.total
@@ -185,6 +200,13 @@ export default function InvoicesPage() {
           <span className="text-gray-400">-</span>
         )
       }
+    },
+    {
+      key: 'currency',
+      header: 'Moneda',
+      exportValue: (invoice) => invoice.afipData?.currency ?? invoice.receipt?.currency ?? 'ARS',
+      render: () => null,
+      className: 'hidden'
     },
     {
       key: 'pdf',
@@ -214,11 +236,17 @@ export default function InvoicesPage() {
     {
       key: 'createdAt',
       header: 'Fecha',
+      exportValue: (invoice) => formatDateTime(invoice.createdAt),
       render: (invoice) => (
         <span className="text-sm text-gray-500">{formatDateTime(invoice.createdAt)}</span>
       )
     }
   ]
+
+  const exportConfig: ExportConfig = {
+    filename: 'facturas',
+    excludeColumns: ['pdf']
+  }
 
   const actions: ActionMenuItem<Invoice>[] = [
     {
@@ -290,6 +318,7 @@ export default function InvoicesPage() {
       title="Facturas"
       subtitle="Listado de facturas emitidas"
       emptyMessage="No se encontraron facturas"
+      exportConfig={exportConfig}
     />
   )
 }

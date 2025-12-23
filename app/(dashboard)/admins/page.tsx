@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { AdminRoles, AdminStatus } from '@/lib/constants'
-import { DataTable, Badge, Avatar, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
+import { DataTable, Badge, Avatar, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDate, formatDateTime } from '@/lib/utils/dateUtils'
 
 interface Admin {
@@ -152,6 +152,7 @@ export default function AdminsPage() {
     {
       key: 'admin',
       header: 'Administrador',
+      exportValue: (admin) => admin.name,
       render: (admin) => (
         <div className="flex items-center gap-3">
           <Avatar name={admin.name} gradient />
@@ -163,8 +164,16 @@ export default function AdminsPage() {
       )
     },
     {
+      key: 'email',
+      header: 'Email',
+      exportValue: (admin) => admin.email,
+      render: () => null,
+      className: 'hidden'
+    },
+    {
       key: 'role',
       header: 'Rol',
+      exportValue: (admin) => getRoleLabel(admin.role),
       render: (admin) => (
         <Badge variant={getRoleBadgeVariant(admin.role) as 'purple' | 'info' | 'gray'}>
           {getRoleLabel(admin.role)}
@@ -174,6 +183,7 @@ export default function AdminsPage() {
     {
       key: 'status',
       header: 'Estado',
+      exportValue: (admin) => getStatusLabel(admin.status),
       render: (admin) => (
         <Badge variant={getStatusBadgeVariant(admin.status) as 'success' | 'gray' | 'danger'}>
           {getStatusLabel(admin.status)}
@@ -183,6 +193,7 @@ export default function AdminsPage() {
     {
       key: 'lastLoginAt',
       header: 'Último Acceso',
+      exportValue: (admin) => admin.lastLoginAt ? formatDateTime(admin.lastLoginAt) : 'Nunca',
       render: (admin) => (
         <span className="text-gray-500 text-sm">
           {admin.lastLoginAt
@@ -194,6 +205,7 @@ export default function AdminsPage() {
     {
       key: 'createdAt',
       header: 'Creado',
+      exportValue: (admin) => formatDateTime(admin.createdAt),
       render: (admin) => (
         <span className="text-gray-500 text-sm">
           {formatDateTime(admin.createdAt)}
@@ -201,6 +213,10 @@ export default function AdminsPage() {
       )
     }
   ]
+
+  const exportConfig: ExportConfig = {
+    filename: 'administradores'
+  }
 
   const filters: FilterConfig[] = [
     {
@@ -310,6 +326,7 @@ export default function AdminsPage() {
           </button>
         }
         emptyMessage="No se encontraron administradores"
+        exportConfig={exportConfig}
       />
 
       {/* Modal */}
