@@ -4,6 +4,8 @@ import { discountCodeRepository } from '@/lib/db/repositories'
 import { toDiscountCodeListDTO } from '@/lib/dto/discount-code.dto'
 import { DiscountType, DiscountTypeType } from '@/lib/constants/discount.constants'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { error } = await validateAdminRequest(request)

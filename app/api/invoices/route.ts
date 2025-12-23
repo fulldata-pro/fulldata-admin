@@ -5,6 +5,8 @@ import '@/lib/db/models/register-models'
 import { validateAdminRequest } from '@/lib/auth'
 import { toInvoiceListDTO } from '@/lib/dto/invoice.dto'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { admin, error } = await validateAdminRequest(request)

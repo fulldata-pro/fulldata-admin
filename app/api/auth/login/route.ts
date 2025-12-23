@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db/connection'
 import Admin from '@/lib/db/models/Admin'
 import { generateToken, setAuthCookie } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json()

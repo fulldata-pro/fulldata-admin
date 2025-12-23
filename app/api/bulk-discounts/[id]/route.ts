@@ -3,6 +3,8 @@ import { validateAdminRequest } from '@/lib/auth'
 import { bulkDiscountRepository } from '@/lib/db/repositories'
 import { toBulkDiscountDetailDTO } from '@/lib/dto/bulk-discount.dto'
 
+export const dynamic = 'force-dynamic';
+
 interface RouteParams {
   params: Promise<{ id: string }>
 }

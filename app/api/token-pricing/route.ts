@@ -3,6 +3,8 @@ import { validateAdminRequest } from '@/lib/auth'
 import { tokenPricingRepository } from '@/lib/db/repositories'
 import { toTokenPricingListDTO, toTokenPriceSimpleListDTO } from '@/lib/dto/token-pricing.dto'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { error } = await validateAdminRequest(request)

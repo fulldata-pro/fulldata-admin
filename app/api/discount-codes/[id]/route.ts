@@ -3,6 +3,8 @@ import { validateAdminRequest } from '@/lib/auth'
 import { discountCodeRepository } from '@/lib/db/repositories'
 import { toDiscountCodeDetailDTO } from '@/lib/dto/discount-code.dto'
 
+export const dynamic = 'force-dynamic';
+
 interface RouteParams {
   params: Promise<{ id: string }>
 }

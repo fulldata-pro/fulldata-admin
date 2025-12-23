@@ -5,6 +5,8 @@ import AccountApi from "@/lib/db/models/AccountApi";
 import { validateAdminRequest } from "@/lib/auth";
 import { AccountStatusType } from "@/lib/constants";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { error } = await validateAdminRequest(request);

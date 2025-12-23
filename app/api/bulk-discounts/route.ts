@@ -3,6 +3,8 @@ import { validateAdminRequest } from '@/lib/auth'
 import { bulkDiscountRepository } from '@/lib/db/repositories'
 import { toBulkDiscountListDTO } from '@/lib/dto/bulk-discount.dto'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { error } = await validateAdminRequest(request)

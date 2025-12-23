@@ -3,6 +3,8 @@ import { validateAdminRequest } from '@/lib/auth'
 import { proxyRepository } from '@/lib/db/repositories'
 import { toProxyDetailDTO } from '@/lib/dto/proxy.dto'
 
+export const dynamic = 'force-dynamic';
+
 interface RouteParams {
   params: Promise<{ id: string }>
 }

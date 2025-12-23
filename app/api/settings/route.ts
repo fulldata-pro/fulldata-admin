@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db/connection'
 import Config, { ConfigReferralType } from '@/lib/db/models/Config'
 import { validateAdminRequest } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { error } = await validateAdminRequest(request)

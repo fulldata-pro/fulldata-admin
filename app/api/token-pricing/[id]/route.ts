@@ -3,6 +3,8 @@ import { validateAdminRequest } from '@/lib/auth'
 import { tokenPricingRepository } from '@/lib/db/repositories'
 import { toTokenPricingDetailDTO } from '@/lib/dto/token-pricing.dto'
 
+export const dynamic = 'force-dynamic';
+
 interface RouteParams {
   params: Promise<{ id: string }>
 }

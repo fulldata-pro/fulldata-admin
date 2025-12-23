@@ -7,6 +7,8 @@ import AccountApi from '@/lib/db/models/AccountApi'
 import '@/lib/db/models/User'
 import { validateAdminRequest } from '@/lib/auth'
 
+export const dynamic = 'force-dynamic';
+
 interface RouteParams {
   params: Promise<{ id: string }>
 }

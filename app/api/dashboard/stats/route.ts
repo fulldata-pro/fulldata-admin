@@ -7,6 +7,8 @@ import mongoose from 'mongoose'
 import { validateAdminRequest } from '@/lib/auth'
 import { RequestStatus } from '@/lib/constants'
 
+export const dynamic = 'force-dynamic';
+
 interface RevenueByCurrency {
   currency: string
   total: number

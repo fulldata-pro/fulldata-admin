@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminRequest } from '@/lib/auth'
 import { receiptRepository, PeriodType } from '@/lib/db/repositories'
 
+export const dynamic = 'force-dynamic';
+
 const VALID_PERIODS: PeriodType[] = ['today', 'week', 'month', 'year']
 
 export async function GET(request: NextRequest) {
