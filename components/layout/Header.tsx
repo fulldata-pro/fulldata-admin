@@ -6,6 +6,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '@/store/store'
 import { logout } from '@/store/slices/authSlice'
 import { toast } from 'react-toastify'
+import { ROUTES } from '@/lib/constants'
 
 interface HeaderProps {
   title?: string
@@ -110,7 +111,13 @@ export default function Header({ title }: HeaderProps) {
                     </button>
                   </li>
                   <li>
-                    <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                    <button
+                      onClick={() => {
+                        setShowDropdown(false)
+                        router.push(ROUTES.SETTINGS)
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
                       <i className="ki-duotone ki-setting-3 text-xl text-gray-400">
                         <span className="path1"></span>
                         <span className="path2"></span>
