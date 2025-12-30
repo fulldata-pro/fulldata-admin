@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
 import { addUidMiddleware } from '../helpers/uid-middleware'
 import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
-import { RequestStatus } from '@/lib/constants'
+import { RequestStatus, RequestSource } from '@/lib/constants'
 
 interface IRequestRelation {
   request: Types.ObjectId
@@ -15,6 +15,9 @@ export interface IRequest extends Document {
   accountTagId?: Types.ObjectId
   countryCode: string
   isDuplicated?: boolean
+  isBatch?: boolean
+  source?: 'API' | 'WEB'
+  movementId?: Types.ObjectId
   metadata?: object
   prompts?: object
   intelligenceData?: any
@@ -48,6 +51,9 @@ const RequestSchema = new Schema<IRequest>(
     accountTagId: { type: Schema.Types.ObjectId, ref: 'AccountTag' },
     countryCode: { type: String, required: true },
     isDuplicated: { type: Boolean, default: false },
+    isBatch: { type: Boolean, default: false },
+    source: { type: String, enum: Object.values(RequestSource) },
+    movementId: { type: Schema.Types.ObjectId, ref: 'Movement' },
     metadata: { type: Object },
     prompts: { type: Object },
     intelligenceData: { type: Schema.Types.Mixed },

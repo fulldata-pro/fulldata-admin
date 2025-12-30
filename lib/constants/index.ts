@@ -145,6 +145,18 @@ export const RequestStatus = {
 
 export type RequestStatusType = (typeof RequestStatus)[keyof typeof RequestStatus]
 
+export const RequestSource = {
+  API: 'API',
+  WEB: 'WEB',
+} as const
+
+export type RequestSourceType = (typeof RequestSource)[keyof typeof RequestSource]
+
+export const RequestSourceLabels: Record<RequestSourceType, string> = {
+  API: 'API',
+  WEB: 'Web',
+}
+
 export const PaymentProvider = {
   MERCADO_PAGO: 'MERCADO_PAGO',
   STRIPE: 'STRIPE',

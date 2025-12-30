@@ -35,6 +35,7 @@ const navigation: NavSection[] = [
       { label: 'Cuentas', href: '/accounts', icon: 'ki-people' },
       { label: 'Usuarios', href: '/users', icon: 'ki-profile-user' },
       { label: 'Administradores', href: '/admins', icon: 'ki-shield-tick' },
+      { label: 'Reportes', href: '/reports', icon: 'ki-search-list' },
     ],
   },
   {
@@ -52,7 +53,6 @@ const navigation: NavSection[] = [
       { label: 'Servicios', href: '/services', icon: 'ki-setting-2' },
       { label: 'Códigos de Descuento', href: '/discount-codes', icon: 'ki-discount' },
       { label: 'Descuentos Cantidad', href: '/bulk-discounts', icon: 'ki-basket' },
-      { label: 'Ajustes', href: '/settings', icon: 'ki-gear' },
     ],
   },
 ]
