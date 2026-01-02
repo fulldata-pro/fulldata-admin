@@ -1,7 +1,8 @@
 import { Types } from 'mongoose'
 import { BaseRepository } from './base.repository'
-import User, { IUser, AuthProviders } from '@/lib/db/models/User'
+import User, { IUser } from '@/lib/db/models/User'
 import { ExtendedModel } from '@/lib/db/types/model.types'
+import { AuthProvider, AuthProviderType } from '@/lib/constants'
 
 export interface CreateUserData {
   email: string
@@ -11,7 +12,7 @@ export interface CreateUserData {
   phoneCountryCode?: string
   password?: string
   googleId?: string
-  provider?: AuthProviders
+  provider?: AuthProviderType
 }
 
 class UserRepository extends BaseRepository<IUser> {
@@ -64,7 +65,7 @@ class UserRepository extends BaseRepository<IUser> {
     return this.create({
       ...data,
       email: data.email.toLowerCase(),
-      provider: data.provider || AuthProviders.LOCAL,
+      provider: data.provider || AuthProvider.LOCAL,
     })
   }
 

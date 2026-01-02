@@ -111,3 +111,67 @@ import { formatDate, formatDateTime, getRelativeTime } from '@/lib/utils/dateUti
 - Strings de fecha estándar
 
 **NO crear nuevas funciones de formateo de fechas. Usar siempre dateUtils.ts.**
+
+---
+
+## Number Formatting
+
+**IMPORTANTE**: Para todo formateo de números en este proyecto, usar **siempre** las funciones del archivo `lib/utils/currencyUtils.ts`.
+
+En Argentina el separador de miles es `.` y el de decimales es `,`. Estas funciones ya manejan esto correctamente.
+
+### Funciones disponibles:
+
+- `formatNumber()` - Formatea números con separadores de miles (locale es-AR por defecto)
+- `formatCurrency()` - Formatea montos como moneda con símbolo y código
+
+### Ejemplo de uso:
+
+```typescript
+import { formatNumber, formatCurrency } from '@/lib/utils/currencyUtils';
+
+// Formatear números
+formatNumber(1500)        // "1.500"
+formatNumber(1500000)     // "1.500.000"
+
+// Formatear moneda
+formatCurrency(1500.50, 'ARS')  // "$1.500,50 ARS"
+formatCurrency(1500.50, 'USD')  // "$1,500.50 USD"
+```
+
+### Reglas:
+1. **NUNCA usar `.toLocaleString()` directamente** - Usar siempre `formatNumber()` o `formatCurrency()`
+2. **NUNCA usar template literals para formatear números** - Ej: `` `${number.toLocaleString()}` ``
+3. Para tokens, balances, cantidades, etc. usar `formatNumber()`
+4. Para precios y montos monetarios usar `formatCurrency()`
+
+**NO crear nuevas funciones de formateo de números. Usar siempre currencyUtils.ts.**
+
+---
+
+## Routes
+
+**IMPORTANTE**: Para todas las rutas de navegación, usar **siempre** las constantes definidas en `lib/constants/routes.constants.ts`.
+
+### Ejemplo de uso:
+
+```typescript
+import { ROUTES } from '@/lib/constants';
+
+// ❌ MAL - Rutas hardcodeadas
+<Link href="/accounts">Cuentas</Link>
+<Link href={`/accounts/${uid}`}>Ver cuenta</Link>
+router.push('/billing/receipts')
+
+// ✅ BIEN - Usar constantes
+<Link href={ROUTES.ACCOUNTS}>Cuentas</Link>
+<Link href={ROUTES.ACCOUNT_DETAIL(uid)}>Ver cuenta</Link>
+router.push(ROUTES.BILLING.RECEIPTS)
+```
+
+### Reglas:
+1. **NUNCA hardcodear rutas** - Usar siempre las constantes de `ROUTES`
+2. **Al crear una nueva página, agregar su ruta** a `routes.constants.ts`
+3. Las rutas dinámicas se definen como funciones: `ACCOUNT_DETAIL: (uid: string) => \`/accounts/${uid}\``
+
+**NO hardcodear paths. Usar siempre ROUTES.**

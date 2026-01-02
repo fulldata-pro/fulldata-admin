@@ -50,6 +50,7 @@ export interface IAccountBenefit {
 
 export interface IAccount extends Document {
   _id: Types.ObjectId
+  id: number
   uid: string
   name: string
   avatar?: string
@@ -152,6 +153,11 @@ const AccountBenefitSchema = new Schema<IAccountBenefit>(
 
 const AccountSchema = new Schema<IAccount>(
   {
+    id: {
+      type: Number,
+      required: true,
+      unique: true,
+    },
     uid: {
       type: String,
       unique: true,

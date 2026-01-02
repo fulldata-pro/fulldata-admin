@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const status = searchParams.get('status') || ''
     const type = searchParams.get('type') || ''
+    const accountId = searchParams.get('accountId') || ''
 
     const result = await requestRepository.list({
       page,
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
       search: search || undefined,
       status: (status as RequestStatusType) || undefined,
       type: type || undefined,
+      accountId: accountId || undefined,
     })
 
     // Transform data for frontend (safe fields only)

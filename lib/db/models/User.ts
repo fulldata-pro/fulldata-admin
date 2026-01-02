@@ -1,10 +1,6 @@
 import mongoose, { Schema, Document, Model, Types } from 'mongoose'
 import { addUidMiddleware } from '../helpers/uid-middleware'
-
-export enum AuthProviders {
-  LOCAL = 'LOCAL',
-  GOOGLE = 'GOOGLE',
-}
+import { UserStatus, UserStatusType, AuthProvider, AuthProviderType } from '@/lib/constants'
 
 export interface IUser extends Document {
   _id: Types.ObjectId
@@ -19,7 +15,8 @@ export interface IUser extends Document {
   phone?: string
   phoneCountryCode?: string
   googleId?: string
-  provider?: AuthProviders
+  provider?: AuthProviderType
+  status: UserStatusType
   emailVerifiedAt?: Date
   phoneVerifiedAt?: Date
   onboardingCreditUsedAt?: Date
@@ -79,8 +76,13 @@ const UserSchema = new Schema<IUser>(
     googleId: String,
     provider: {
       type: String,
-      enum: Object.values(AuthProviders),
-      default: AuthProviders.LOCAL,
+      enum: Object.values(AuthProvider),
+      default: AuthProvider.LOCAL,
+    },
+    status: {
+      type: String,
+      enum: Object.values(UserStatus),
+      default: UserStatus.ACTIVE,
     },
     emailVerifiedAt: Date,
     phoneVerifiedAt: Date,
