@@ -23,6 +23,21 @@ export const AccountStatus = {
 
 export type AccountStatusType = (typeof AccountStatus)[keyof typeof AccountStatus]
 
+export const UserStatus = {
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+  BANNED: 'BANNED',
+} as const
+
+export type UserStatusType = (typeof UserStatus)[keyof typeof UserStatus]
+
+export const AuthProvider = {
+  LOCAL: 'LOCAL',
+  GOOGLE: 'GOOGLE',
+} as const
+
+export type AuthProviderType = (typeof AuthProvider)[keyof typeof AuthProvider]
+
 /** @deprecated Use AccountBillingType instead */
 export const AccountType = {
   INDIVIDUAL: 'INDIVIDUAL',

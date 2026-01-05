@@ -3,6 +3,8 @@ import dbConnect from '@/lib/db/connection'
 import Account from '@/lib/db/models/Account'
 import AccountTokenBalance from '@/lib/db/models/AccountTokenBalance'
 import AccountApi from '@/lib/db/models/AccountApi'
+import DiscountCode from '@/lib/db/models/DiscountCode'
+import Receipt from '@/lib/db/models/Receipt'
 // Import models to register them for populate
 import '@/lib/db/models/User'
 import { validateAdminRequest } from '@/lib/auth'
@@ -23,21 +25,38 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params
     await dbConnect()
 
-    const [account, tokenBalance, accountApi] = await Promise.all([
+    const [account, tokenBalance, accountApi, discountCodesUsedCount, bulkDiscountsUsedCount] = await Promise.all([
       Account.findById(id)
         .populate({
           path: 'users.user',
-          select: 'uid firstName lastName email phone avatar emailVerifiedAt phoneVerifiedAt',
+          select: 'id uid firstName lastName email phone avatar emailVerifiedAt phoneVerifiedAt status provider',
         }),
       AccountTokenBalance.findOne({ accountId: id, deletedAt: null }),
       AccountApi.findOne({ accountId: id, deletedAt: null }),
+      // Contar códigos de descuento usados por esta cuenta
+      DiscountCode.countDocuments({
+        'usageHistory.accountId': id,
+        deletedAt: null,
+      }),
+      // Contar descuentos por volumen usados por esta cuenta
+      Receipt.countDocuments({
+        accountId: id,
+        bulkDiscountId: { $exists: true, $ne: null },
+        deletedAt: null,
+      }),
     ])
 
     if (!account) {
       return NextResponse.json({ error: 'Cuenta no encontrada' }, { status: 404 })
     }
 
-    return NextResponse.json({ account, tokenBalance, accountApi })
+    return NextResponse.json({
+      account,
+      tokenBalance,
+      accountApi,
+      discountCodesUsedCount,
+      bulkDiscountsUsedCount,
+    })
   } catch (error) {
     console.error('Get account error:', error instanceof Error ? error.message : error)
     console.error('Stack:', error instanceof Error ? error.stack : '')

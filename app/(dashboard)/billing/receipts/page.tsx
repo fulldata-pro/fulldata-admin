@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
-import { ReceiptStatus } from '@/lib/constants'
+import { ReceiptStatus, ROUTES } from '@/lib/constants'
 import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDateTime } from '@/lib/utils/dateUtils'
 import { formatCurrency } from '@/lib/utils/currencyUtils'
@@ -32,12 +32,11 @@ interface DiscountCode {
 
 interface BulkDiscount {
   name: string
-  tiers: Array<{
+  appliedTier?: {
     minTokens: number
-    maxTokens?: number
     discountPercentage: number
     label?: string
-  }>
+  }
 }
 
 interface Account {
@@ -190,7 +189,7 @@ export default function ReceiptsPage() {
             </div>
           )}
           <Link
-            href={`/accounts?uid=${receipt.account?.uid}`}
+            href={ROUTES.ACCOUNT_DETAIL(receipt.account?.uid || '')}
             className="font-medium text-gray-900 hover:text-primary transition-colors"
           >
             {receipt.account?.billingName || receipt.account?.email || 'N/A'}
@@ -472,28 +471,22 @@ export default function ReceiptsPage() {
                 </div>
               </div>
             )}
-            {hoveredReceipt.bulkDiscount && (() => {
-              // Encontrar el tier aplicado según la cantidad de tokens
-              const tokenQty = hoveredReceipt.tokens?.quantity || 0
-              const appliedTier = hoveredReceipt.bulkDiscount.tiers
-                ?.filter(t => tokenQty >= t.minTokens)
-                .sort((a, b) => b.minTokens - a.minTokens)[0]
-
-              return (
-                <div className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-900">Volumen</span>
-                    <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
-                      {appliedTier ? `-${appliedTier.discountPercentage}%` : 'Aplicado'}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {hoveredReceipt.bulkDiscount.name}
-                    {appliedTier?.label && ` - ${appliedTier.label}`}
-                  </div>
+            {hoveredReceipt.bulkDiscount && (
+              <div className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-900">Volumen</span>
+                  <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                    {hoveredReceipt.bulkDiscount.appliedTier
+                      ? `-${hoveredReceipt.bulkDiscount.appliedTier.discountPercentage}%`
+                      : 'Aplicado'}
+                  </span>
                 </div>
-              )
-            })()}
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {hoveredReceipt.bulkDiscount.name}
+                  {hoveredReceipt.bulkDiscount.appliedTier?.label && ` - ${hoveredReceipt.bulkDiscount.appliedTier.label}`}
+                </div>
+              </div>
+            )}
             {/* Si hay descuento pero no hay código ni bulk vinculado */}
             {!hoveredReceipt.discountCode && !hoveredReceipt.bulkDiscount && hoveredReceipt.subtotal > hoveredReceipt.total && (
               <div className="px-4 py-2.5 hover:bg-gray-50 transition-colors">
