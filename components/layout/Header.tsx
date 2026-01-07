@@ -7,6 +7,12 @@ import { RootState } from '@/store/store'
 import { logout } from '@/store/slices/authSlice'
 import { toast } from 'react-toastify'
 import { ROUTES } from '@/lib/constants'
+import { formatCurrency } from '@/lib/utils/currencyUtils'
+
+interface TokenPrice {
+  currency: string
+  price: number
+}
 
 interface HeaderProps {
   title?: string
@@ -17,6 +23,7 @@ export default function Header({ title }: HeaderProps) {
   const dispatch = useDispatch()
   const { admin } = useSelector((state: RootState) => state.auth)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [tokenPrices, setTokenPrices] = useState<TokenPrice[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,6 +35,22 @@ export default function Header({ title }: HeaderProps) {
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const fetchTokenPrices = async () => {
+      try {
+        const response = await fetch('/api/token-pricing?simple=true')
+        if (response.ok) {
+          const data = await response.json()
+          setTokenPrices(data.prices || [])
+        }
+      } catch (error) {
+        console.error('Error fetching token prices:', error)
+      }
+    }
+
+    fetchTokenPrices()
   }, [])
 
   const handleLogout = async () => {
@@ -64,6 +87,30 @@ export default function Header({ title }: HeaderProps) {
 
         {/* Right side - Actions */}
         <div className="flex items-center gap-4">
+          {/* Token Prices */}
+          {tokenPrices.length > 0 && (
+            <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <i className="ki-duotone ki-dollar text-lg text-primary">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                  <span className="path3"></span>
+                </i>
+                <span className="text-xs font-medium">1 Token</span>
+              </div>
+              <div className="h-4 w-px bg-gray-200"></div>
+              <div className="flex items-center gap-3">
+                {tokenPrices.map((tp) => (
+                  <div key={tp.currency} className="flex items-center gap-1">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {formatCurrency(tp.price, tp.currency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Notifications */}
           <button className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
             <i className="ki-duotone ki-notification text-xl">
