@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { DataTable, Badge, ActionIcon, type Column, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
+import { Select } from '@/components/ui/Select'
+import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
 import { DiscountType, DISCOUNT_TYPE_LABELS, DiscountTypeType } from '@/lib/constants/discount.constants'
 import { formatDate } from '@/lib/utils/dateUtils'
 
@@ -20,6 +23,7 @@ interface DiscountCode {
   validFrom?: string
   validUntil?: string
   createdAt: string
+  updatedAt?: string
 }
 
 const DEFAULT_PAGE_SIZE = 10
@@ -305,11 +309,38 @@ export default function DiscountCodesPage() {
       )
     },
     {
+      key: 'validFrom',
+      header: 'Válido desde',
+      render: (item) => (
+        <span className="text-gray-600">
+          {item.validFrom ? formatDate(item.validFrom) : '-'}
+        </span>
+      )
+    },
+    {
       key: 'validUntil',
       header: 'Válido hasta',
       render: (item) => (
         <span className="text-gray-600">
-          {item.validUntil ? formatDate(item.validUntil) : 'Sin límite'}
+          {item.validUntil ? formatDate(item.validUntil) : '-'}
+        </span>
+      )
+    },
+    {
+      key: 'createdAt',
+      header: 'Creado',
+      render: (item) => (
+        <span className="text-gray-600">
+          {formatDate(item.createdAt)}
+        </span>
+      )
+    },
+    {
+      key: 'updatedAt',
+      header: 'Actualizado',
+      render: (item) => (
+        <span className="text-gray-600">
+          {item.updatedAt ? formatDate(item.updatedAt) : '-'}
         </span>
       )
     },
@@ -372,124 +403,167 @@ export default function DiscountCodesPage() {
 
       {/* Edit Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsEditModalOpen(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">
-              Editar Código - {editingCode?.code}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="input w-full"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as DiscountTypeType })}
-                    className="input w-full"
-                  >
-                    {discountTypeOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <i className="ki-duotone ki-pencil text-xl text-primary">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                  </i>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
-                    className="input w-full"
-                  />
+                  <h3 className="text-lg font-semibold text-gray-900">Editar Código</h3>
+                  <p className="text-sm text-gray-500 font-mono">{editingCode?.code}</p>
                 </div>
               </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-xl text-gray-500">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="space-y-6">
+                {/* Información básica */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Usos máximos
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.maxUses || ''}
-                    onChange={(e) => setFormData({ ...formData, maxUses: e.target.value ? parseInt(e.target.value) : undefined })}
-                    placeholder="Sin límite"
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Usos por cuenta
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.maxUsesPerAccount}
-                    onChange={(e) => setFormData({ ...formData, maxUsesPerAccount: parseInt(e.target.value) || 1 })}
-                    className="input w-full"
-                  />
-                </div>
-              </div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-information text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                      <span className="path3"></span>
+                    </i>
+                    Información básica
+                  </h4>
+                  <div className="space-y-4">
+                    <Input
+                      label="Nombre del descuento"
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ej: 20% de descuento en primera compra"
+                    />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Válido desde
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.validFrom}
-                    onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
-                    className="input w-full"
-                  />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                          Tipo de descuento
+                        </label>
+                        <Select
+                          value={formData.type}
+                          onChange={(value) => setFormData({ ...formData, type: value as DiscountTypeType })}
+                          options={discountTypeOptions}
+                          placeholder="Seleccionar tipo"
+                        />
+                      </div>
+                      <Input
+                        label={`Valor (${formData.type === DiscountType.PERCENTAGE ? '%' : formData.type === DiscountType.BONUS_TOKENS ? 'tokens' : '$'})`}
+                        type="number"
+                        step="0.01"
+                        value={formData.value}
+                        onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Válido hasta
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.validUntil}
-                    onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-                    className="input w-full"
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isEnabled"
-                  checked={formData.isEnabled}
-                  onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <label htmlFor="isEnabled" className="text-sm font-medium text-gray-700">
-                  Habilitado
-                </label>
+                {/* Límites de uso */}
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-shield-tick text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Límites de uso
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Usos totales máximos"
+                      type="number"
+                      value={formData.maxUses || ''}
+                      onChange={(e) => setFormData({ ...formData, maxUses: e.target.value ? parseInt(e.target.value) : undefined })}
+                      placeholder="Ilimitado"
+                      helperText="Dejar vacío para sin límite"
+                    />
+                    <Input
+                      label="Usos por cuenta"
+                      type="number"
+                      value={formData.maxUsesPerAccount}
+                      onChange={(e) => setFormData({ ...formData, maxUsesPerAccount: parseInt(e.target.value) || 1 })}
+                      min={1}
+                      helperText="Veces que cada cuenta puede usarlo"
+                    />
+                  </div>
+                </div>
+
+                {/* Vigencia */}
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-calendar text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Vigencia
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Fecha de inicio"
+                      type="date"
+                      value={formData.validFrom}
+                      onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
+                    />
+                    <Input
+                      label="Fecha de fin"
+                      type="date"
+                      value={formData.validUntil}
+                      onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Estado */}
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formData.isEnabled ? 'bg-green-100' : 'bg-gray-200'}`}>
+                        <i className={`ki-duotone ki-toggle-${formData.isEnabled ? 'on' : 'off'}-circle text-xl ${formData.isEnabled ? 'text-green-600' : 'text-gray-400'}`}>
+                          <span className="path1"></span>
+                          <span className="path2"></span>
+                        </i>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Estado del código</p>
+                        <p className="text-xs text-gray-500">
+                          {formData.isEnabled ? 'El código está activo y puede ser usado' : 'El código está desactivado'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, isEnabled: !formData.isEnabled })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.isEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${formData.isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <button
                 onClick={() => setIsEditModalOpen(false)}
                 className="btn btn-secondary"
@@ -499,10 +573,23 @@ export default function DiscountCodesPage() {
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="btn btn-primary"
+                className="btn btn-primary flex items-center gap-2"
                 disabled={isSaving}
               >
-                {isSaving ? 'Guardando...' : 'Guardar'}
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <i className="ki-duotone ki-check text-lg">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Guardar cambios
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -511,177 +598,223 @@ export default function DiscountCodesPage() {
 
       {/* Create Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsCreateModalOpen(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">
-              Nuevo Código de Descuento
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Código *
-                </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="DESCUENTO20"
-                  className="input w-full uppercase"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="20% de descuento en primera compra"
-                  className="input w-full"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={2}
-                  className="input w-full"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tipo *
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as DiscountTypeType })}
-                    className="input w-full"
-                  >
-                    {discountTypeOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                  <i className="ki-duotone ki-plus-square text-xl text-green-600">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                    <span className="path3"></span>
+                  </i>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Valor *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
-                    className="input w-full"
-                  />
+                  <h3 className="text-lg font-semibold text-gray-900">Nuevo Código de Descuento</h3>
+                  <p className="text-sm text-gray-500">Crea un cupón promocional</p>
                 </div>
               </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-xl text-gray-500">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
+            </div>
 
-              <div className="grid grid-cols-2 gap-4">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="space-y-6">
+                {/* Identificación del código */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Compra mínima (tokens)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.minimumPurchase || ''}
-                    onChange={(e) => setFormData({ ...formData, minimumPurchase: e.target.value ? parseInt(e.target.value) : undefined })}
-                    placeholder="Sin mínimo"
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Descuento máximo
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.maximumDiscount || ''}
-                    onChange={(e) => setFormData({ ...formData, maximumDiscount: e.target.value ? parseInt(e.target.value) : undefined })}
-                    placeholder="Sin límite"
-                    className="input w-full"
-                  />
-                </div>
-              </div>
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-tag text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                      <span className="path3"></span>
+                    </i>
+                    Identificación
+                  </h4>
+                  <div className="space-y-4">
+                    <Input
+                      label="Código"
+                      required
+                      type="text"
+                      value={formData.code}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                      placeholder="VERANO2024"
+                      className="uppercase font-mono tracking-wider"
+                      helperText="El código que los usuarios ingresarán"
+                    />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Usos máximos
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.maxUses || ''}
-                    onChange={(e) => setFormData({ ...formData, maxUses: e.target.value ? parseInt(e.target.value) : undefined })}
-                    placeholder="Sin límite"
-                    className="input w-full"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Usos por cuenta
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.maxUsesPerAccount}
-                    onChange={(e) => setFormData({ ...formData, maxUsesPerAccount: parseInt(e.target.value) || 1 })}
-                    className="input w-full"
-                  />
-                </div>
-              </div>
+                    <Input
+                      label="Nombre"
+                      required
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Descuento de verano 2024"
+                    />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Válido desde
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.validFrom}
-                    onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
-                    className="input w-full"
-                  />
+                    <Textarea
+                      label="Descripción"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows={2}
+                      placeholder="Descripción interna del código..."
+                      resize="none"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Válido hasta
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.validUntil}
-                    onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-                    className="input w-full"
-                  />
-                </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isEnabledCreate"
-                  checked={formData.isEnabled}
-                  onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <label htmlFor="isEnabledCreate" className="text-sm font-medium text-gray-700">
-                  Habilitado
-                </label>
+                {/* Configuración del descuento */}
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-discount text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Configuración del descuento
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                          Tipo <span className="text-red-500">*</span>
+                        </label>
+                        <Select
+                          value={formData.type}
+                          onChange={(value) => setFormData({ ...formData, type: value as DiscountTypeType })}
+                          options={discountTypeOptions}
+                          placeholder="Seleccionar tipo"
+                        />
+                      </div>
+                      <Input
+                        label={`Valor (${formData.type === DiscountType.PERCENTAGE ? '%' : formData.type === DiscountType.BONUS_TOKENS ? 'tokens' : '$'})`}
+                        required
+                        type="number"
+                        step="0.01"
+                        value={formData.value}
+                        onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input
+                        label="Compra mínima (tokens)"
+                        type="number"
+                        value={formData.minimumPurchase || ''}
+                        onChange={(e) => setFormData({ ...formData, minimumPurchase: e.target.value ? parseInt(e.target.value) : undefined })}
+                        placeholder="Sin mínimo"
+                      />
+                      <Input
+                        label="Descuento máximo ($)"
+                        type="number"
+                        value={formData.maximumDiscount || ''}
+                        onChange={(e) => setFormData({ ...formData, maximumDiscount: e.target.value ? parseInt(e.target.value) : undefined })}
+                        placeholder="Sin límite"
+                        helperText="Tope del descuento aplicable"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Límites de uso */}
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-shield-tick text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Límites de uso
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Usos totales máximos"
+                      type="number"
+                      value={formData.maxUses || ''}
+                      onChange={(e) => setFormData({ ...formData, maxUses: e.target.value ? parseInt(e.target.value) : undefined })}
+                      placeholder="Ilimitado"
+                      helperText="Dejar vacío para sin límite"
+                    />
+                    <Input
+                      label="Usos por cuenta"
+                      type="number"
+                      value={formData.maxUsesPerAccount}
+                      onChange={(e) => setFormData({ ...formData, maxUsesPerAccount: parseInt(e.target.value) || 1 })}
+                      min={1}
+                      helperText="Veces que cada cuenta puede usarlo"
+                    />
+                  </div>
+                </div>
+
+                {/* Vigencia */}
+                <div className="pt-2 border-t border-gray-100">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <i className="ki-duotone ki-calendar text-gray-400">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Vigencia
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Fecha de inicio"
+                      type="date"
+                      value={formData.validFrom}
+                      onChange={(e) => setFormData({ ...formData, validFrom: e.target.value })}
+                      helperText="Dejar vacío para activar inmediatamente"
+                    />
+                    <Input
+                      label="Fecha de fin"
+                      type="date"
+                      value={formData.validUntil}
+                      onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                      helperText="Dejar vacío para sin expiración"
+                    />
+                  </div>
+                </div>
+
+                {/* Estado */}
+                <div className="pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${formData.isEnabled ? 'bg-green-100' : 'bg-gray-200'}`}>
+                        <i className={`ki-duotone ki-toggle-${formData.isEnabled ? 'on' : 'off'}-circle text-xl ${formData.isEnabled ? 'text-green-600' : 'text-gray-400'}`}>
+                          <span className="path1"></span>
+                          <span className="path2"></span>
+                        </i>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">Activar al crear</p>
+                        <p className="text-xs text-gray-500">
+                          {formData.isEnabled ? 'El código estará disponible inmediatamente' : 'El código se creará desactivado'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, isEnabled: !formData.isEnabled })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.isEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${formData.isEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <button
                 onClick={() => setIsCreateModalOpen(false)}
                 className="btn btn-secondary"
@@ -691,10 +824,23 @@ export default function DiscountCodesPage() {
               </button>
               <button
                 onClick={handleSaveCreate}
-                className="btn btn-primary"
+                className="btn btn-primary flex items-center gap-2"
                 disabled={isSaving}
               >
-                {isSaving ? 'Creando...' : 'Crear'}
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                    Creando...
+                  </>
+                ) : (
+                  <>
+                    <i className="ki-duotone ki-plus text-lg">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Crear código
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -17,6 +17,7 @@ export interface DiscountCodeListItemDTO {
   validFrom?: string
   validUntil?: string
   createdAt: string
+  updatedAt?: string
 }
 
 /**
@@ -43,7 +44,6 @@ export interface DiscountCodeDetailDTO extends DiscountCodeListItemDTO {
   firstPurchaseOnly: boolean
   termsAndConditions?: string
   usageHistory: DiscountCodeUsageDTO[]
-  updatedAt?: string
 }
 
 /**
@@ -76,6 +76,7 @@ export function toDiscountCodeListItemDTO(discountCode: IDiscountCode): Discount
     validFrom: discountCode.validFrom?.toISOString(),
     validUntil: discountCode.validUntil?.toISOString(),
     createdAt: discountCode.createdAt?.toISOString() ?? new Date().toISOString(),
+    updatedAt: discountCode.updatedAt?.toISOString(),
   }
 }
 
