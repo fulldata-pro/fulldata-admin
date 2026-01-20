@@ -23,13 +23,18 @@ export default function Header({ title }: HeaderProps) {
   const dispatch = useDispatch()
   const { admin } = useSelector((state: RootState) => state.auth)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [showPricesDropdown, setShowPricesDropdown] = useState(false)
   const [tokenPrices, setTokenPrices] = useState<TokenPrice[]>([])
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const pricesDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false)
+      }
+      if (pricesDropdownRef.current && !pricesDropdownRef.current.contains(event.target as Node)) {
+        setShowPricesDropdown(false)
       }
     }
 
@@ -87,27 +92,50 @@ export default function Header({ title }: HeaderProps) {
 
         {/* Right side - Actions */}
         <div className="flex items-center gap-4">
-          {/* Token Prices */}
+          {/* Token Prices Dropdown */}
           {tokenPrices.length > 0 && (
-            <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <i className="ki-duotone ki-dollar text-lg text-primary">
+            <div className="relative" ref={pricesDropdownRef}>
+              <button
+                onClick={() => setShowPricesDropdown(!showPricesDropdown)}
+                className="flex items-center gap-2 px-3 py-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-colors"
+              >
+                <i className="ki-duotone ki-wallet text-lg text-primary">
                   <span className="path1"></span>
                   <span className="path2"></span>
                   <span className="path3"></span>
+                  <span className="path4"></span>
                 </i>
-                <span className="text-xs font-medium">1 Token</span>
-              </div>
-              <div className="h-4 w-px bg-gray-200"></div>
-              <div className="flex items-center gap-3">
-                {tokenPrices.map((tp) => (
-                  <div key={tp.currency} className="flex items-center gap-1">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(tp.price, tp.currency)}
-                    </span>
+                <span className="text-sm font-medium text-gray-700">Precio Token</span>
+                <i className={`ki-duotone ki-down text-xs text-gray-400 transition-transform ${showPricesDropdown ? 'rotate-180' : ''}`}>
+                  <span className="path1"></span>
+                </i>
+              </button>
+
+              {showPricesDropdown && (
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 animate-fade-in z-50">
+                  <div className="px-4 py-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio por Token</p>
                   </div>
-                ))}
-              </div>
+                  <div className="py-1">
+                    {tokenPrices.map((tp) => (
+                      <div
+                        key={tp.currency}
+                        className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                            {tp.currency}
+                          </span>
+                          <span className="text-sm text-gray-600">1 Token</span>
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {formatCurrency(tp.price, tp.currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

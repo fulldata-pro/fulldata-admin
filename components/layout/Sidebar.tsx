@@ -51,8 +51,8 @@ const navigation: NavSection[] = [
     items: [
       { label: 'Precios Tokens', href: '/token-pricing', icon: 'ki-dollar' },
       { label: 'Servicios', href: '/services', icon: 'ki-setting-2' },
-      { label: 'Códigos de Descuento', href: '/discount-codes', icon: 'ki-discount' },
-      { label: 'Descuentos Cantidad', href: '/bulk-discounts', icon: 'ki-basket' },
+      { label: 'Beneficios', href: '/discount-codes', icon: 'ki-discount' },
+      { label: 'Descuentos', href: '/bulk-discounts', icon: 'ki-basket' },
     ],
   },
 ]
@@ -158,7 +158,7 @@ export default function Sidebar({ width, onWidthChange }: SidebarProps) {
         {/* Footer */}
         <div className="p-4 border-t border-white/10">
           <div className="card-glass-dark text-center py-3">
-            <p className="text-xs text-gray-400">Fulldata Admin v1.0</p>
+            <p className="text-xs text-gray-400">Fulldata Admin v1.1</p>
           </div>
         </div>
       </div>

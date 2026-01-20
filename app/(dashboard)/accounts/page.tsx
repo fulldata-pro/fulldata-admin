@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
-import { AccountStatus } from '@/lib/constants'
+import { AccountStatus, ROUTES } from '@/lib/constants'
 import { DataTable, Badge, Code, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
 import { formatDate } from '@/lib/utils/dateUtils'
+import { CreateAccountModal } from '@/components/modals/CreateAccountModal'
 
 interface AccountUser {
   user: {
@@ -59,6 +60,7 @@ export default function AccountsPage() {
   const [hoveredUsers, setHoveredUsers] = useState<string | null>(null)
   const [usersPopupPosition, setUsersPopupPosition] = useState<UsersPopupPosition | null>(null)
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>([])
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const usersButtonRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   const fetchAccounts = useCallback(async () => {
@@ -87,6 +89,59 @@ export default function AccountsPage() {
   useEffect(() => {
     fetchAccounts()
   }, [fetchAccounts])
+
+  const handleCreateAccount = async (data: any) => {
+    try {
+      const response = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // User data
+          user: {
+            email: data.email,
+            password: data.password,
+            phone: data.phone,
+            phoneCountryCode: data.phoneCountryCode,
+            firstName: data.firstName,
+            lastName: data.lastName
+          },
+          // Account data
+          accountName: data.billingName,
+          // Billing data
+          billing: {
+            name: data.billingName,
+            taxId: data.taxId,
+            type: data.billingType,
+            address: data.address,
+            city: data.city,
+            zip: data.zip,
+            state: data.state,
+            stateId: data.stateId,
+            country: data.country,
+            countryId: data.countryId,
+            activity: data.activity,
+            vatType: data.vatType
+          }
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        toast.success('Cuenta creada correctamente')
+        fetchAccounts()
+        // Navigate to the new account
+        if (result.account?._id) {
+          router.push(ROUTES.ACCOUNT_DETAIL(result.account._id))
+        }
+      } else {
+        const error = await response.json()
+        throw new Error(error.error || 'Error al crear cuenta')
+      }
+    } catch (error) {
+      console.error('Error creating account:', error)
+      throw error
+    }
+  }
 
   const handleDelete = async (account: Account) => {
     if (!confirm('¿Estás seguro de eliminar esta cuenta?')) return
@@ -150,7 +205,7 @@ export default function AccountsPage() {
       header: 'Cuenta',
       exportValue: (account) => account.billing?.name || account.name,
       render: (account) => (
-        <Link href={`/accounts/${account._id}`} className="block hover:text-primary transition-colors">
+        <Link href={ROUTES.ACCOUNT_DETAIL(account._id)} className="block hover:text-primary transition-colors">
           <div className="font-medium text-gray-900">
             {account.billing?.name || account.name}
           </div>
@@ -268,12 +323,7 @@ export default function AccountsPage() {
     {
       label: 'Ver detalles',
       icon: <ActionIcon icon="eye" className="text-gray-500" />,
-      onClick: (account) => router.push(`/accounts/${account._id}`)
-    },
-    {
-      label: 'Editar',
-      icon: <ActionIcon icon="pencil" className="text-gray-500" />,
-      onClick: (account) => router.push(`/accounts/${account._id}/edit`)
+      onClick: (account) => router.push(ROUTES.ACCOUNT_DETAIL(account._id))
     },
     {
       label: 'Eliminar',
@@ -333,13 +383,16 @@ export default function AccountsPage() {
         title="Cuentas"
         subtitle="Gestiona las cuentas de clientes"
         headerAction={
-          <Link href="/accounts/new" className="btn-primary flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn btn-primary flex items-center gap-2"
+          >
             <i className="ki-duotone ki-plus text-xl">
               <span className="path1"></span>
               <span className="path2"></span>
             </i>
             Nueva Cuenta
-          </Link>
+          </button>
         }
         emptyMessage="No se encontraron cuentas"
         exportConfig={exportConfig}
@@ -381,6 +434,13 @@ export default function AccountsPage() {
         </div>,
         document.body
       )}
+
+      {/* Create Account Modal */}
+      <CreateAccountModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onConfirm={handleCreateAccount}
+      />
     </>
   )
 }

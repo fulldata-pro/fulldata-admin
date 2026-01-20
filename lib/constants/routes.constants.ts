@@ -10,6 +10,12 @@ export const ROUTES = {
   // Accounts
   ACCOUNTS: '/accounts',
   ACCOUNT_DETAIL: (uid: string) => `/accounts/${uid}`,
+  ACCOUNT_EDIT: (uid: string) => `/accounts/${uid}/edit`,
+
+  // Users
+  USERS: '/users',
+  USER_DETAIL: (uid: string) => `/users/${uid}`,
+  USER_EDIT: (uid: string) => `/users/${uid}/edit`,
 
   // Billing
   BILLING: {
@@ -18,6 +24,10 @@ export const ROUTES = {
     INVOICES: '/billing/invoices',
     INVOICE_DETAIL: (uid: string) => `/billing/invoices/${uid}`,
   },
+
+  // Reports
+  REPORTS: '/reports',
+  REPORT_DETAIL: (uid: string) => `/reports/${uid}`,
 
   // Settings
   SETTINGS: '/settings',

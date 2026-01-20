@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Check if account name already exists
-    if (body.name) {
-      const nameExists = await accountRepository.nameExists(body.name);
+    if (body.accountName) {
+      const nameExists = await accountRepository.nameExists(body.accountName);
       if (nameExists) {
         return NextResponse.json(
           { error: "Ya existe una cuenta con este nombre" },
@@ -65,30 +65,32 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Find or create user as Owner (using user's email)
-    let user = await userRepository.findByEmail(body.userEmail);
-
-    if (!user) {
-      // Create new user with billing name or email prefix as name
-      const nameFromBilling = body.billing?.name || "";
-      const nameParts = nameFromBilling.split(" ");
-      const firstName = nameParts[0] || body.userEmail.split("@")[0];
-      const lastName = nameParts.slice(1).join(" ") || "";
-
-      user = await userRepository.createUser({
-        email: body.userEmail,
-        firstName,
-        lastName,
-        phone: body.userPhone,
-        phoneCountryCode: body.userPhoneCountryCode,
-      });
+    // Check if email already exists
+    if (body.user?.email) {
+      const emailExists = await userRepository.findByEmail(body.user.email);
+      if (emailExists) {
+        return NextResponse.json(
+          { error: "Ya existe un usuario con este email" },
+          { status: 400 }
+        );
+      }
     }
+
+    // Create new user with provided data
+    const user = await userRepository.createUser({
+      email: body.user.email,
+      password: body.user.password,
+      firstName: body.user.firstName,
+      lastName: body.user.lastName,
+      phone: body.user.phone,
+      phoneCountryCode: body.user.phoneCountryCode,
+    });
 
     // Create account with user as owner
     const account = await accountRepository.create({
-      name: body.name,
+      name: body.accountName,
       type: body.type,
-      status: body.status || "PENDING",
+      status: body.status || "ACTIVE",
       billing: body.billing || {},
       serviceConfig: {
         apiEnabled: body.apiEnabled !== undefined ? body.apiEnabled : true,
