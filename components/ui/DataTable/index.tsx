@@ -562,7 +562,7 @@ export function DataTable<T>({
       {/* Table */}
       <div className={`${glass ? 'bg-white/70 backdrop-blur-xl border border-white/50 shadow-xl shadow-slate-200/40' : 'bg-white border border-slate-200 shadow-sm'} rounded-2xl overflow-hidden`}>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full border-collapse">
             <thead className={`${glass ? 'bg-gradient-to-b from-slate-50/90 to-slate-100/70 backdrop-blur-sm' : 'bg-slate-50'}`}>
               <tr>
                 {selectable && (
@@ -636,7 +636,7 @@ export function DataTable<T>({
                     <tr
                       key={key}
                       className={`
-                        transition-all duration-150 ease-out
+                        group transition-all duration-150 ease-out
                         ${onRowClick ? 'cursor-pointer' : ''}
                         ${glass ? 'hover:bg-slate-50/70' : 'hover:bg-slate-50'}
                         ${isSelected ? 'bg-primary/[0.04]' : ''}
@@ -662,7 +662,7 @@ export function DataTable<T>({
                         </td>
                       ))}
                       {actions && (
-                        <td className={`${cellPadding}`} onClick={(e) => e.stopPropagation()}>
+                        <td className={`${cellPadding} text-end`} onClick={(e) => e.stopPropagation()}>
                           <button
                             ref={(el) => {
                               if (el) actionButtonRefs.current.set(key, el)
