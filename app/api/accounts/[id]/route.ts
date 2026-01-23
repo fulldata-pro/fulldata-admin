@@ -7,6 +7,8 @@ import DiscountCode from '@/lib/db/models/DiscountCode'
 import Receipt from '@/lib/db/models/Receipt'
 // Import models to register them for populate
 import '@/lib/db/models/User'
+import '@/lib/db/models/State'
+import '@/lib/db/models/Country'
 import { validateAdminRequest } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +32,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .populate({
           path: 'users.user',
           select: 'id uid firstName lastName email phone avatar emailVerifiedAt phoneVerifiedAt status provider',
-        }),
+        })
+        .populate('billing.state', 'name')
+        .populate('billing.country', 'name'),
       AccountTokenBalance.findOne({ accountId: id, deletedAt: null }),
       AccountApi.findOne({ accountId: id, deletedAt: null }),
       // Contar códigos de descuento usados por esta cuenta

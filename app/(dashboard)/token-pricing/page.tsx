@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { DataTable, Badge, ActionIcon, type Column, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
@@ -283,20 +284,45 @@ export default function TokenPricingPage() {
       />
 
       {/* Edit Modal */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {isEditModalOpen && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsEditModalOpen(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              Editar Precio - {editingPricing?.countryCode}
-            </h3>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <i className="ki-duotone ki-dollar text-xl text-primary">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                    <span className="path3"></span>
+                  </i>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Editar Precio - {editingPricing?.countryCode}
+                  </h3>
+                  <p className="text-sm text-gray-500">Modifica la configuración de precios</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-xl text-gray-500">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
+            </div>
 
-            <div className="space-y-4">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="label">
                   Precio por Token ({editingPricing?.currency})
                 </label>
                 <input
@@ -304,24 +330,24 @@ export default function TokenPricingPage() {
                   step="0.0001"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className="input w-full"
+                  className="input-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="label">
                   Compra Mínima (tokens)
                 </label>
                 <input
                   type="number"
                   value={formData.minPurchase}
                   onChange={(e) => setFormData({ ...formData, minPurchase: parseInt(e.target.value) || 0 })}
-                  className="input w-full"
+                  className="input-field"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="label">
                   Compra Máxima (tokens)
                 </label>
                 <input
@@ -329,25 +355,26 @@ export default function TokenPricingPage() {
                   value={formData.maxPurchase || ''}
                   onChange={(e) => setFormData({ ...formData, maxPurchase: e.target.value ? parseInt(e.target.value) : undefined })}
                   placeholder="Sin límite"
-                  className="input w-full"
+                  className="input-field"
                 />
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
                 <input
                   type="checkbox"
                   id="isEnabled"
                   checked={formData.isEnabled}
                   onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary/20"
                 />
-                <label htmlFor="isEnabled" className="text-sm font-medium text-gray-700">
-                  Habilitado
+                <label htmlFor="isEnabled" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  Configuración habilitada
                 </label>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <button
                 onClick={() => setIsEditModalOpen(false)}
                 className="btn btn-secondary"
@@ -357,59 +384,100 @@ export default function TokenPricingPage() {
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="btn btn-primary"
+                className="btn btn-primary flex items-center gap-2"
                 disabled={isSaving}
               >
-                {isSaving ? 'Guardando...' : 'Guardar'}
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <i className="ki-duotone ki-check text-lg">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Guardar
+                  </>
+                )}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Create Modal */}
-      {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {isCreateModalOpen && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
             onClick={() => setIsCreateModalOpen(false)}
           />
-          <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold mb-4">
-              Nuevo Precio de Tokens
-            </h3>
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <i className="ki-duotone ki-dollar text-xl text-primary">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                    <span className="path3"></span>
+                  </i>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Nuevo Precio de Tokens
+                  </h3>
+                  <p className="text-sm text-gray-500">Configura precios por país y moneda</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(false)}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-xl text-gray-500">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
+            </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Código de País
-                </label>
-                <input
-                  type="text"
-                  value={formData.countryCode}
-                  onChange={(e) => setFormData({ ...formData, countryCode: e.target.value.toUpperCase() })}
-                  placeholder="AR, US, MX, etc."
-                  maxLength={2}
-                  className="input w-full uppercase"
-                />
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">
+                    Código de País
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.countryCode}
+                    onChange={(e) => setFormData({ ...formData, countryCode: e.target.value.toUpperCase() })}
+                    placeholder="AR"
+                    maxLength={2}
+                    className="input-field uppercase"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">
+                    Moneda
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
+                    placeholder="ARS"
+                    maxLength={3}
+                    className="input-field uppercase"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Moneda
-                </label>
-                <input
-                  type="text"
-                  value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
-                  placeholder="ARS, USD, MXN, etc."
-                  maxLength={3}
-                  className="input w-full uppercase"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="label">
                   Precio por Token
                 </label>
                 <input
@@ -417,50 +485,57 @@ export default function TokenPricingPage() {
                   step="0.0001"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className="input w-full"
+                  className="input-field"
+                  placeholder="0.0000"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Compra Mínima (tokens)
-                </label>
-                <input
-                  type="number"
-                  value={formData.minPurchase}
-                  onChange={(e) => setFormData({ ...formData, minPurchase: parseInt(e.target.value) || 0 })}
-                  className="input w-full"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">
+                    Compra Mínima
+                    <span className="text-xs text-gray-400 ml-1">(tokens)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.minPurchase}
+                    onChange={(e) => setFormData({ ...formData, minPurchase: parseInt(e.target.value) || 0 })}
+                    className="input-field"
+                    placeholder="100"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">
+                    Compra Máxima
+                    <span className="text-xs text-gray-400 ml-1">(tokens)</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.maxPurchase || ''}
+                    onChange={(e) => setFormData({ ...formData, maxPurchase: e.target.value ? parseInt(e.target.value) : undefined })}
+                    placeholder="Sin límite"
+                    className="input-field"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Compra Máxima (tokens)
-                </label>
-                <input
-                  type="number"
-                  value={formData.maxPurchase || ''}
-                  onChange={(e) => setFormData({ ...formData, maxPurchase: e.target.value ? parseInt(e.target.value) : undefined })}
-                  placeholder="Sin límite"
-                  className="input w-full"
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
                 <input
                   type="checkbox"
                   id="isEnabledCreate"
                   checked={formData.isEnabled}
                   onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary/20"
                 />
-                <label htmlFor="isEnabledCreate" className="text-sm font-medium text-gray-700">
-                  Habilitado
+                <label htmlFor="isEnabledCreate" className="text-sm font-medium text-gray-700 cursor-pointer">
+                  Configuración habilitada
                 </label>
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 mt-6">
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <button
                 onClick={() => setIsCreateModalOpen(false)}
                 className="btn btn-secondary"
@@ -470,14 +545,28 @@ export default function TokenPricingPage() {
               </button>
               <button
                 onClick={handleSaveCreate}
-                className="btn btn-primary"
+                className="btn btn-primary flex items-center gap-2"
                 disabled={isSaving}
               >
-                {isSaving ? 'Creando...' : 'Crear'}
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Creando...
+                  </>
+                ) : (
+                  <>
+                    <i className="ki-duotone ki-plus text-lg">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Crear
+                  </>
+                )}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

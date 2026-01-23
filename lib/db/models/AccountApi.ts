@@ -9,6 +9,7 @@ export interface IWebhookConfig {
   events: string[]
   headers?: Record<string, string>
   isEnabled: boolean
+  description?: string
 }
 
 export interface IAccountApi extends Document {
@@ -44,6 +45,7 @@ const WebhookConfigSchema = new Schema<IWebhookConfig>(
       default: {},
     },
     isEnabled: { type: Boolean, default: true },
+    description: { type: String },
   },
   { _id: false }
 )

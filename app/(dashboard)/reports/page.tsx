@@ -16,6 +16,10 @@ interface Report {
   searchQuery?: string
   isBatch?: boolean
   source?: 'API' | 'WEB' | null
+  metadata?: {
+    fullName?: string
+    [key: string]: unknown
+  }
   account?: {
     uid: string
     email: string
@@ -112,11 +116,16 @@ export default function ReportsPage() {
     {
       key: 'search',
       header: 'Búsqueda',
-      exportValue: (report) => report.searchQuery || '-',
+      exportValue: (report) =>
+        report.type === 'IDENTITY' && report.metadata?.fullName
+          ? report.metadata.fullName
+          : report.searchQuery || '-',
       render: (report) => (
         <div className="max-w-[200px]">
           <span className="font-medium text-gray-900 truncate block">
-            {report.searchQuery || '-'}
+            {report.type === 'IDENTITY' && report.metadata?.fullName
+              ? report.metadata.fullName
+              : report.searchQuery || '-'}
           </span>
         </div>
       )

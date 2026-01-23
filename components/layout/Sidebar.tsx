@@ -51,8 +51,8 @@ const navigation: NavSection[] = [
     items: [
       { label: 'Precios Tokens', href: '/token-pricing', icon: 'ki-dollar' },
       { label: 'Servicios', href: '/services', icon: 'ki-setting-2' },
-      { label: 'Códigos de Descuento', href: '/discount-codes', icon: 'ki-discount' },
-      { label: 'Descuentos Cantidad', href: '/bulk-discounts', icon: 'ki-basket' },
+      { label: 'Beneficios', href: '/discount-codes', icon: 'ki-discount' },
+      { label: 'Descuentos', href: '/bulk-discounts', icon: 'ki-basket' },
     ],
   },
 ]
@@ -103,13 +103,13 @@ export default function Sidebar({ width, onWidthChange }: SidebarProps) {
 
   return (
     <aside
-      className="fixed left-0 top-0 z-40 h-screen bg-secondary overflow-y-auto scrollbar-hide"
+      className="fixed left-0 top-0 z-40 h-screen sidebar-gradient overflow-y-auto scrollbar-hide"
       style={{ width: `${width}px` }}
     >
       <div className="flex flex-col h-full">
         {/* Logo */}
-        <div className="flex items-center justify-center h-16 border-b border-white/10">
-          <Link href="/dashboard">
+        <div className="flex items-center justify-center h-20 border-b border-white/10 backdrop-blur-xl">
+          <Link href="/dashboard" className="sidebar-logo-link">
             <Image
               src="/logo-header-w.svg"
               alt="Fulldata Admin"
@@ -121,31 +121,39 @@ export default function Sidebar({ width, onWidthChange }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-6">
+        <nav className="flex-1 px-4 py-6 space-y-8">
           {navigation.map((section) => (
-            <div key={section.title}>
-              <p className="px-4 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                {section.title}
-              </p>
-              <ul className="space-y-1">
+            <div key={section.title} className="sidebar-section">
+              <div className="flex items-center gap-3 px-3 mb-3">
+                <div className="sidebar-section-line"></div>
+                <p className="sidebar-section-title">
+                  {section.title}
+                </p>
+              </div>
+              <ul className="space-y-1.5">
                 {section.items.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
                       className={isActive(item.href) ? 'sidebar-link-active' : 'sidebar-link'}
                     >
-                      <i className={`ki-duotone ${item.icon} text-xl`}>
-                        <span className="path1"></span>
-                        <span className="path2"></span>
-                        <span className="path3"></span>
-                        <span className="path4"></span>
-                        <span className="path5"></span>
-                      </i>
-                      <span className="font-medium">{item.label}</span>
+                      <div className="sidebar-link-content">
+                        <i className={`ki-duotone ${item.icon} sidebar-link-icon`}>
+                          <span className="path1"></span>
+                          <span className="path2"></span>
+                          <span className="path3"></span>
+                          <span className="path4"></span>
+                          <span className="path5"></span>
+                        </i>
+                        <span className="sidebar-link-label">{item.label}</span>
+                      </div>
                       {item.badge && (
-                        <span className="ml-auto bg-primary text-white text-xs px-2 py-0.5 rounded-full">
+                        <span className="sidebar-badge">
                           {item.badge}
                         </span>
+                      )}
+                      {isActive(item.href) && (
+                        <div className="sidebar-active-indicator"></div>
                       )}
                     </Link>
                   </li>
@@ -156,19 +164,23 @@ export default function Sidebar({ width, onWidthChange }: SidebarProps) {
         </nav>
 
         {/* Footer */}
-        <div className="p-4 border-t border-white/10">
-          <div className="card-glass-dark text-center py-3">
-            <p className="text-xs text-gray-400">Fulldata Admin v1.0</p>
+        <div className="p-4 border-t border-white/10 backdrop-blur-xl">
+          <div className="sidebar-footer">
+            <div className="sidebar-footer-glow"></div>
+            <div className="relative z-10">
+              <p className="text-xs font-semibold text-white/90 mb-0.5">Fulldata Admin</p>
+              <p className="text-[10px] text-white/50 font-medium">Version 1.1</p>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Resize handle */}
       <div
-        className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-primary/50 transition-colors group"
+        className="sidebar-resize-handle"
         onMouseDown={handleMouseDown}
       >
-        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-16 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+        <div className="sidebar-resize-indicator" />
       </div>
     </aside>
   )

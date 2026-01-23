@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useSelector } from 'react-redux'
+import { RootState } from '@/store/store'
 import { toast } from 'react-toastify'
 import { AdminRoles, AdminStatus } from '@/lib/constants'
 import { DataTable, Badge, Avatar, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
@@ -24,6 +26,7 @@ const DEFAULT_PAGE_SIZE = 10
 export default function AdminsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const currentAdmin = useSelector((state: RootState) => state.auth.admin)
   const [admins, setAdmins] = useState<Admin[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -34,6 +37,9 @@ export default function AdminsPage() {
   const [selectedAdmins, setSelectedAdmins] = useState<string[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<Partial<Admin> & { password?: string } | null>(null)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [changingPasswordAdmin, setChangingPasswordAdmin] = useState<Admin | null>(null)
+  const [newPassword, setNewPassword] = useState('')
 
   const fetchAdmins = useCallback(async () => {
     setIsLoading(true)
@@ -112,6 +118,31 @@ export default function AdminsPage() {
     }
   }
 
+  const handlePasswordChange = async () => {
+    if (!changingPasswordAdmin || !newPassword) return
+
+    try {
+      const response = await fetch(`/api/admins/${changingPasswordAdmin._id}/password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success('Contraseña actualizada correctamente')
+        setShowPasswordModal(false)
+        setChangingPasswordAdmin(null)
+        setNewPassword('')
+      } else {
+        toast.error(data.error || 'Error al cambiar la contraseña')
+      }
+    } catch {
+      toast.error('Error al cambiar la contraseña')
+    }
+  }
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'SUPER_ADMIN': return 'purple'
@@ -167,8 +198,9 @@ export default function AdminsPage() {
       key: 'email',
       header: 'Email',
       exportValue: (admin) => admin.email,
-      render: () => null,
-      className: 'hidden'
+      render: (admin) => (
+        <span className="text-gray-600 text-sm">{admin.email}</span>
+      )
     },
     {
       key: 'role',
@@ -243,19 +275,67 @@ export default function AdminsPage() {
     }
   ]
 
+  // Create actions dynamically based on permissions
   const actions: ActionMenuItem<Admin>[] = [
     {
       label: 'Editar',
       icon: <ActionIcon icon="pencil" className="text-gray-500" />,
       onClick: (admin) => {
+        const isCurrentSuperAdmin = currentAdmin?.role === 'SUPER_ADMIN'
+        const isTargetSuperAdmin = admin.role === 'SUPER_ADMIN'
+
+        // Non-super admins cannot modify super admins
+        if (!isCurrentSuperAdmin && isTargetSuperAdmin) {
+          toast.warning('No tienes permisos para editar un Super Admin')
+          return
+        }
+
         setEditingAdmin(admin)
         setShowModal(true)
-      }
+      },
+      className: 'text-slate-700 hover:bg-slate-50/80'
+    },
+    {
+      label: 'Cambiar Contraseña',
+      icon: <ActionIcon icon="lock" className="text-blue-500" />,
+      onClick: (admin) => {
+        const isCurrentSuperAdmin = currentAdmin?.role === 'SUPER_ADMIN'
+        const isTargetSuperAdmin = admin.role === 'SUPER_ADMIN'
+
+        // Non-super admins cannot modify super admins
+        if (!isCurrentSuperAdmin && isTargetSuperAdmin) {
+          toast.warning('No tienes permisos para cambiar la contraseña de un Super Admin')
+          return
+        }
+
+        setChangingPasswordAdmin(admin)
+        setNewPassword('')
+        setShowPasswordModal(true)
+      },
+      className: 'text-slate-700 hover:bg-slate-50/80'
     },
     {
       label: 'Eliminar',
       icon: <ActionIcon icon="trash" className="text-red-500" />,
-      onClick: handleDelete,
+      onClick: (admin) => {
+        const isCurrentAdmin = currentAdmin?.email === admin.email
+        const isCurrentSuperAdmin = currentAdmin?.role === 'SUPER_ADMIN'
+        const isTargetSuperAdmin = admin.role === 'SUPER_ADMIN'
+
+        // Cannot delete yourself
+        if (isCurrentAdmin) {
+          toast.warning('No puedes eliminar tu propia cuenta')
+          return
+        }
+
+        // Non-super admins cannot delete super admins
+        if (!isCurrentSuperAdmin && isTargetSuperAdmin) {
+          toast.warning('No tienes permisos para eliminar un Super Admin')
+          return
+        }
+
+        handleDelete(admin)
+      },
       className: 'text-red-600 hover:bg-red-50'
     }
   ]
@@ -316,7 +396,7 @@ export default function AdminsPage() {
               setEditingAdmin({ name: '', email: '', password: '', role: 'ADMIN', status: 'ACTIVE' })
               setShowModal(true)
             }}
-            className="btn-primary flex items-center gap-2"
+            className="btn btn-primary flex items-center gap-2"
           >
             <i className="ki-duotone ki-plus text-xl">
               <span className="path1"></span>
@@ -331,14 +411,46 @@ export default function AdminsPage() {
 
       {/* Modal */}
       {showModal && editingAdmin && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-md m-4 shadow-2xl">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-semibold text-secondary">
-                {editingAdmin._id ? 'Editar Administrador' : 'Nuevo Administrador'}
-              </h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md transform transition-all animate-in zoom-in-95 duration-300">
+            {/* Header with gradient */}
+            <div className="relative overflow-hidden rounded-t-3xl bg-gradient-to-br from-indigo-500 via-blue-500 to-purple-600 p-8 text-white">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16"></div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setShowModal(false)
+                  setEditingAdmin(null)
+                }}
+                className="absolute top-4 right-4 z-10 text-white/80 hover:text-white transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-2xl">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
+
+              <div className="relative text-center">
+                <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
+                  <i className="ki-duotone ki-user-tick text-4xl">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                    <span className="path3"></span>
+                  </i>
+                </div>
+                <h3 className="text-2xl font-bold mb-2">
+                  {editingAdmin._id ? 'Editar Administrador' : 'Nuevo Administrador'}
+                </h3>
+                <p className="text-white/90 text-sm">
+                  {editingAdmin._id ? 'Actualiza los datos del administrador' : 'Crea un nuevo usuario administrativo'}
+                </p>
+              </div>
             </div>
-            <div className="p-6 space-y-4">
+
+            {/* Content */}
+            <div className="p-8 space-y-4">
               <div>
                 <label className="label">Nombre</label>
                 <input
@@ -359,18 +471,18 @@ export default function AdminsPage() {
                   required
                 />
               </div>
-              <div>
-                <label className="label">
-                  Contraseña {editingAdmin._id && '(dejar vacío para no cambiar)'}
-                </label>
-                <input
-                  type="password"
-                  value={editingAdmin.password || ''}
-                  onChange={(e) => setEditingAdmin({ ...editingAdmin, password: e.target.value })}
-                  className="input-field"
-                  required={!editingAdmin._id}
-                />
-              </div>
+              {!editingAdmin._id && (
+                <div>
+                  <label className="label">Contraseña</label>
+                  <input
+                    type="password"
+                    value={editingAdmin.password || ''}
+                    onChange={(e) => setEditingAdmin({ ...editingAdmin, password: e.target.value })}
+                    className="input-field"
+                    required
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">Rol</label>
@@ -411,18 +523,115 @@ export default function AdminsPage() {
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
+
+            {/* Footer */}
+            <div className="px-8 pb-8 flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowModal(false)
                   setEditingAdmin(null)
                 }}
-                className="btn-outline"
+                className="btn btn-light min-w-[100px]"
               >
                 Cancelar
               </button>
-              <button onClick={handleSave} className="btn-primary">
-                Guardar
+              <button
+                onClick={handleSave}
+                className="btn btn-primary min-w-[100px]"
+              >
+                <i className="ki-duotone ki-check me-2">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+                {editingAdmin._id ? 'Actualizar' : 'Crear'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Change Modal */}
+      {showPasswordModal && changingPasswordAdmin && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md transform transition-all animate-in zoom-in-95 duration-300">
+            {/* Header with gradient */}
+            <div className="relative overflow-hidden rounded-t-3xl bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-600 p-8 text-white">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
+              <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16"></div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false)
+                  setChangingPasswordAdmin(null)
+                  setNewPassword('')
+                }}
+                className="absolute top-4 right-4 z-10 text-white/80 hover:text-white transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-2xl">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
+
+              <div className="relative text-center">
+                <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
+                  <i className="ki-duotone ki-lock text-4xl">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                    <span className="path3"></span>
+                    <span className="path4"></span>
+                    <span className="path5"></span>
+                  </i>
+                </div>
+                <h3 className="text-2xl font-bold mb-2">Cambiar Contraseña</h3>
+                <p className="text-white/90 text-sm">
+                  {changingPasswordAdmin.name} • {changingPasswordAdmin.email}
+                </p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-8">
+              <div>
+                <label className="label">Nueva Contraseña</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="input-field"
+                  placeholder="Ingresa la nueva contraseña"
+                  required
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  La contraseña debe tener al menos 6 caracteres
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 pb-8 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowPasswordModal(false)
+                  setChangingPasswordAdmin(null)
+                  setNewPassword('')
+                }}
+                className="btn btn-light min-w-[100px]"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePasswordChange}
+                disabled={!newPassword || newPassword.length < 6}
+                className="btn btn-primary min-w-[100px] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i className="ki-duotone ki-check me-2">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+                Cambiar
               </button>
             </div>
           </div>

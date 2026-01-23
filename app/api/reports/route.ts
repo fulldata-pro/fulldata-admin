@@ -49,6 +49,11 @@ export async function GET(request: NextRequest) {
       const rawSearchQuery = report.metadata?.searchQuery
       const searchQuery = typeof rawSearchQuery === 'string' ? rawSearchQuery : null
 
+      // Extract metadata fields for identity reports
+      const metadata = report.type === 'IDENTITY' && report.metadata?.fullName ? {
+        fullName: report.metadata.fullName
+      } : undefined
+
       return {
         id: report.id,
         uid: report.uid,
@@ -59,6 +64,7 @@ export async function GET(request: NextRequest) {
         source: report.source || null,
         account,
         user,
+        metadata,
         createdAt: report.createdAt,
       }
     })

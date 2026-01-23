@@ -312,13 +312,6 @@ export default function ReceiptsPage() {
       )
     },
     {
-      key: 'currency',
-      header: 'Moneda',
-      exportValue: (receipt) => receipt.currency,
-      render: () => null,
-      className: 'hidden'
-    },
-    {
       key: 'status',
       header: 'Estado',
       exportValue: (receipt) => getStatusLabel(receipt.status),
