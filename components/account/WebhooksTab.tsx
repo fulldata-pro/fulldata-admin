@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'react-toastify'
 import { WebhookModal } from '@/components/modals/WebhookModal'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
+import { ServiceLabels, ServiceType } from '@/lib/constants'
 
 interface WebhookConfig {
   type: string
@@ -92,8 +93,7 @@ export function WebhooksTab({
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold text-gray-900">{webhook.type || 'Identidad'}</h4>
-                        <span className="text-sm text-gray-500">Servicio: {webhook.type || 'IDENTITY'}</span>
+                        <h4 className="font-semibold text-gray-900">{ServiceLabels[webhook.type as ServiceType] || webhook.type}</h4>
                       </div>
                     </div>
                   </div>

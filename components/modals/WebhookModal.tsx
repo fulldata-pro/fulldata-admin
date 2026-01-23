@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'react-toastify'
+import { ServicesType, ServiceLabels, ServiceType } from '@/lib/constants'
 
 interface WebhookModalProps {
   isOpen: boolean
@@ -15,14 +16,13 @@ const WEBHOOK_EVENTS = [
   { id: 'SEARCH_COMPLETED', label: 'SEARCH_COMPLETED' },
 ]
 
-const WEBHOOK_TYPES = [
-  { id: 'PEOPLE', label: 'Personas' },
-  { id: 'COMPANIES', label: 'Empresas' },
-  { id: 'VEHICLES', label: 'Vehículos' },
-  { id: 'PHONES', label: 'Teléfonos' },
-  { id: 'BANKS', label: 'Bancos' },
-  { id: 'OSINT', label: 'WEB' },
-]
+// Excluir IDENTITY de los tipos de webhook disponibles para crear
+const WEBHOOK_TYPES = Object.values(ServicesType)
+  .filter(type => type !== 'IDENTITY')
+  .map(type => ({
+    id: type,
+    label: ServiceLabels[type as ServiceType]
+  }))
 
 export function WebhookModal({
   isOpen,

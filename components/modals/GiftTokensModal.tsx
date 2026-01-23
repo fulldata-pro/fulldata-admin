@@ -75,7 +75,7 @@ export function GiftTokensModal({
       await onConfirm(numAmount, description.trim())
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al regalar tokens')
+      setError(err instanceof Error ? err.message : 'Error al acreditar tokens')
     } finally {
       setIsLoading(false)
     }
@@ -119,7 +119,7 @@ export function GiftTokensModal({
                 <span className="path4"></span>
               </i>
             </div>
-            <h3 className="text-2xl font-bold mb-2">Regalar Tokens</h3>
+            <h3 className="text-2xl font-bold mb-2">Acreditar Tokens</h3>
             <p className="text-white/90 text-sm">
               {accountName}
             </p>
@@ -211,7 +211,7 @@ export function GiftTokensModal({
                     <span className="path3"></span>
                     <span className="path4"></span>
                   </i>
-                  Regalar {numAmount > 0 ? formatNumber(numAmount) : ''} Tokens
+                  Acreditar {numAmount > 0 ? formatNumber(numAmount) : ''} Tokens
                 </>
               )}
             </button>

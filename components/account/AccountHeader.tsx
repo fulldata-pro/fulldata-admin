@@ -222,12 +222,11 @@ export function AccountHeader({
                 <h1 className="text-3xl font-bold text-white">
                   {accountName}
                 </h1>
-                <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                  account.status === 'ACTIVE' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
-                  account.status === 'SUSPENDED' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                  account.status === 'BANNED' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                  'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                }`}>
+                <span className={`px-3 py-1 rounded-lg text-xs font-semibold ${account.status === 'ACTIVE' ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+                    account.status === 'SUSPENDED' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                      account.status === 'BANNED' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                        'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                  }`}>
                   {statusConfig.label}
                 </span>
               </div>
@@ -274,7 +273,7 @@ export function AccountHeader({
                       <span className="path1"></span>
                       <span className="path2"></span>
                     </i>
-                    <span>Regalar Tokens</span>
+                    <span>Acreditar Tokens</span>
                   </button>
                   <button
                     onClick={() => {
