@@ -875,40 +875,49 @@ export function DataTable<T>({
       {openDropdown && dropdownPosition && actions && typeof window !== 'undefined' && createPortal(
         <div
           ref={dropdownRef}
-          className="fixed w-56 bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl shadow-slate-200/50 border border-white/60 overflow-hidden z-[99999] animate-fade-in"
+          className="fixed w-52 bg-white rounded-2xl shadow-xl shadow-slate-900/10 border border-slate-200/80 overflow-hidden z-[99999] animate-fade-in"
           style={{
             top: dropdownPosition.showAbove ? 'auto' : `${dropdownPosition.top}px`,
             bottom: dropdownPosition.showAbove ? `${window.innerHeight - dropdownPosition.top + 4}px` : 'auto',
             left: `${dropdownPosition.left}px`,
           }}
         >
-          {actions
-            .filter((action) => {
-              const item = sortedData.find((d) => keyExtractor(d) === openDropdown)
-              return item && (!action.show || action.show(item))
-            })
-            .map((action, actionIndex, filteredActions) => {
-              const item = sortedData.find((d) => keyExtractor(d) === openDropdown)
-              if (!item) return null
-              return (
-                <button
-                  key={actionIndex}
-                  onClick={() => {
-                    action.onClick(item)
-                    setOpenDropdown(null)
-                    setDropdownPosition(null)
-                  }}
-                  className={`w-full text-left flex items-center gap-3 px-4 py-3.5 text-[13px] font-medium transition-all duration-150 ${
-                    actionIndex < filteredActions.length - 1 ? 'border-b border-slate-100' : ''
-                  } ${
-                    action.className || 'text-slate-700 hover:bg-slate-50/80'
-                  }`}
-                >
-                  <span className="text-lg opacity-70">{action.icon}</span>
-                  {action.label}
-                </button>
-              )
-            })}
+          <div className="p-1.5">
+            {actions
+              .filter((action) => {
+                const item = sortedData.find((d) => keyExtractor(d) === openDropdown)
+                return item && (!action.show || action.show(item))
+              })
+              .map((action, actionIndex) => {
+                const item = sortedData.find((d) => keyExtractor(d) === openDropdown)
+                if (!item) return null
+                const isDestructive = action.className?.includes('red')
+                return (
+                  <button
+                    key={actionIndex}
+                    onClick={() => {
+                      action.onClick(item)
+                      setOpenDropdown(null)
+                      setDropdownPosition(null)
+                    }}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-150 ${
+                      isDestructive
+                        ? 'text-red-600 hover:bg-red-50'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      isDestructive
+                        ? 'bg-red-100 text-red-500'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {action.icon}
+                    </span>
+                    {action.label}
+                  </button>
+                )
+              })}
+          </div>
         </div>,
         document.body
       )}
