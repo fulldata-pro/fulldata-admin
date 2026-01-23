@@ -124,7 +124,7 @@ export function TokensTab({ accountId, tokenBalance, onBalanceUpdate }: TokensTa
         return 'badge-success'
       case MovementStatus.PENDING:
         return 'badge-warning'
-      case MovementStatus.REJECTED:
+      case MovementStatus.EXPIRED:
         return 'badge-danger'
       default:
         return 'badge-gray'
@@ -296,7 +296,7 @@ export function TokensTab({ accountId, tokenBalance, onBalanceUpdate }: TokensTa
                       </td>
                       <td className="table-cell">
                         <span className={`badge ${getMovementTypeStyle(movement.type)}`}>
-                          {movement.type === MovementType.TOKENS_BONUS ? 'Tokens Regalados' : MovementTypeLabel[movement.type] || movement.type}
+                          {movement.type === MovementType.TOKENS_BONUS ? 'Tokens Regalados' : MovementTypeLabel[movement.type as MovementType] || movement.type}
                         </span>
                       </td>
                       <td className="table-cell">
@@ -313,7 +313,7 @@ export function TokensTab({ accountId, tokenBalance, onBalanceUpdate }: TokensTa
                       </td>
                       <td className="table-cell">
                         <span className={`badge ${getMovementStatusStyle(movement.status)}`}>
-                          {MovementStatusLabel[movement.status] || movement.status}
+                          {MovementStatusLabel[movement.status as MovementStatus] || movement.status}
                         </span>
                       </td>
                       <td className="table-cell">

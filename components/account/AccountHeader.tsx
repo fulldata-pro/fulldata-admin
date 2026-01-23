@@ -8,7 +8,7 @@ import { formatDate } from '@/lib/utils/dateUtils'
 import { formatNumber } from '@/lib/utils/currencyUtils'
 import { ROUTES } from '@/lib/constants'
 import { GiftTokensModal } from '@/components/modals/GiftTokensModal'
-import { ChangeStatusModal } from '@/components/modals/ChangeStatusModal'
+import { ChangeStatusModal, AccountStatus } from '@/components/modals/ChangeStatusModal'
 
 interface User {
   _id: string
@@ -31,7 +31,7 @@ interface Account {
   uid: string
   name: string
   avatar?: string
-  status: string
+  status: AccountStatus
   billing?: {
     name?: string
     taxId?: string

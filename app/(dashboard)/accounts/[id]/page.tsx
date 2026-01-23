@@ -8,7 +8,7 @@ import { AccountTabs } from '@/components/account/AccountTabs'
 
 export default function AccountDetailPage() {
   const params = useParams()
-  const id = params.id as string
+  const id = params?.id as string
   const router = useRouter()
 
   const [account, setAccount] = useState<any>(null)

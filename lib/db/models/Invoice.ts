@@ -1,7 +1,8 @@
-import mongoose, { Schema, Document, Model, Types } from 'mongoose'
+import mongoose, { Schema, Document, Types } from 'mongoose'
 import { InvoiceType, InvoiceTypes } from '@/lib/constants'
 import { addUidMiddleware } from '../helpers/uid-middleware'
 import { addSoftDeleteMiddleware } from '../helpers/soft-delete-middleware'
+import { ExtendedModel } from '../types/model.types'
 
 /**
  * AFIP Business Data
@@ -171,7 +172,8 @@ InvoiceSchema.index({ type: 1 })
 InvoiceSchema.index({ createdAt: -1 })
 InvoiceSchema.index({ deletedAt: 1 })
 
-const Invoice: Model<IInvoice> =
-  mongoose.models.Invoice || mongoose.model<IInvoice>('Invoice', InvoiceSchema)
+const Invoice: ExtendedModel<IInvoice> =
+  (mongoose.models.Invoice as ExtendedModel<IInvoice>) ||
+  mongoose.model<IInvoice>('Invoice', InvoiceSchema) as ExtendedModel<IInvoice>
 
 export default Invoice

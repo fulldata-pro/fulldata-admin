@@ -86,16 +86,14 @@ export async function POST(
     }
 
     // Get the account with billing data
-    const account = await accountRepository.findById(receipt.accountId, {
-      populate: ['billingData']
-    })
+    const account = await accountRepository.findById(receipt.accountId)
 
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 })
     }
 
     // Check if billing data is complete
-    if (!account.billingData?.name || !account.billingData?.taxId) {
+    if (!account.billing?.name || !account.billing?.taxId) {
       return NextResponse.json(
         { error: 'Billing data is incomplete' },
         { status: 400 }
@@ -108,13 +106,13 @@ export async function POST(
       receiptId: receipt.uid,
       accountId: account.uid,
       billing: {
-        name: account.billingData.name,
-        taxId: account.billingData.taxId,
-        address: account.billingData.address,
-        city: account.billingData.city,
-        state: account.billingData.province,
-        country: account.billingData.country || 'Argentina',
-        postalCode: account.billingData.postalCode,
+        name: account.billing.name,
+        taxId: account.billing.taxId,
+        address: account.billing.address,
+        city: account.billing.city,
+        state: account.billing.state?.toString() || '',
+        country: account.billing.country?.toString() || 'Argentina',
+        postalCode: account.billing.zip || '',
       },
       searches: receipt.tokens
         ? [
@@ -192,10 +190,10 @@ export async function POST(
           activityAt: Date.now(),
         },
         account: {
-          name: account.billingData.name,
-          taxId: account.billingData.taxId,
-          taxCondition: account.billingData.taxCondition || 'Consumidor Final',
-          address: account.billingData.address || '',
+          name: account.billing.name,
+          taxId: account.billing.taxId,
+          taxCondition: account.billing.vatType || 'Consumidor Final',
+          address: account.billing.address || '',
         },
         items: lambdaRequest.searches.map((search) => ({
           code: '000001',

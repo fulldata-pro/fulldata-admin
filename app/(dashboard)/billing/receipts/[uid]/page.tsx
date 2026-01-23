@@ -84,7 +84,7 @@ interface Receipt {
 const getStatusConfig = (status: string) => {
   const configs: Record<string, {
     label: string
-    variant: 'warning' | 'info' | 'success' | 'danger' | 'default'
+    variant: 'warning' | 'info' | 'success' | 'danger' | 'gray'
     iconClass: string
     bgGradient: string
     borderColor: string
@@ -129,7 +129,7 @@ const getStatusConfig = (status: string) => {
     },
     [ReceiptStatus.REFUNDED]: {
       label: 'Reembolsado',
-      variant: 'default',
+      variant: 'gray',
       iconClass: 'ki-arrow-circle-left',
       bgGradient: 'from-gray-50 to-slate-50',
       borderColor: 'border-gray-200',

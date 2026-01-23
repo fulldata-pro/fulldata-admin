@@ -16,6 +16,10 @@ interface Report {
   searchQuery?: string
   isBatch?: boolean
   source?: 'API' | 'WEB' | null
+  metadata?: {
+    fullName?: string
+    [key: string]: unknown
+  }
   account?: {
     uid: string
     email: string
