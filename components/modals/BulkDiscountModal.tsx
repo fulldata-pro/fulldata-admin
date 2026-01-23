@@ -274,34 +274,26 @@ export function BulkDiscountModal({
               {/* Settings */}
               <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700">Estado del descuento</h4>
+                  <div className="flex-1">
+                    <label htmlFor="bulkDiscountEnabled" className="text-sm font-semibold text-gray-700 cursor-pointer">
+                      Estado del descuento
+                    </label>
                     <p className="text-xs text-gray-500 mt-1">
                       {formData.isEnabled
                         ? 'El descuento está activo y se aplicará automáticamente'
                         : 'El descuento está inactivo y no se aplicará'}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, isEnabled: !formData.isEnabled })}
-                    className={`
-                      relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300
-                      ${formData.isEnabled
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600'
-                        : 'bg-gray-300'}
-                    `}
-                    role="switch"
-                    aria-checked={formData.isEnabled}
-                  >
-                    <span className="sr-only">Habilitar descuento</span>
-                    <span
-                      className={`
-                        inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-all duration-300
-                        ${formData.isEnabled ? 'translate-x-8' : 'translate-x-1'}
-                      `}
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      id="bulkDiscountEnabled"
+                      type="checkbox"
+                      checked={formData.isEnabled}
+                      onChange={(e) => setFormData({ ...formData, isEnabled: e.target.checked })}
+                      className="sr-only peer"
                     />
-                  </button>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { toast } from 'react-toastify'
 import { ServiceLabels, ServiceColors, ServiceType } from '@/lib/constants'
 
@@ -38,6 +39,8 @@ export default function ServicesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [editingProxy, setEditingProxy] = useState<Proxy | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null)
+  const dropdownRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
   const fetchData = async () => {
     try {
@@ -57,6 +60,21 @@ export default function ServicesPage() {
   useEffect(() => {
     fetchData()
   }, [])
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openDropdown !== null) {
+        const dropdown = dropdownRefs.current.get(openDropdown)
+        if (dropdown && !dropdown.contains(event.target as Node)) {
+          setOpenDropdown(null)
+        }
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [openDropdown])
 
   const handleSave = async () => {
     if (!editingProxy) return
@@ -155,7 +173,7 @@ export default function ServicesPage() {
           <h1 className="text-2xl font-bold text-secondary">Servicios</h1>
           <p className="text-gray-500 mt-1">Gestiona los proxies y sus servicios disponibles</p>
         </div>
-        <button onClick={openNewModal} className="btn-primary flex items-center gap-2">
+        <button onClick={openNewModal} className="btn btn-primary flex items-center gap-2">
           <i className="ki-duotone ki-plus text-xl">
             <span className="path1"></span>
             <span className="path2"></span>
@@ -186,7 +204,7 @@ export default function ServicesPage() {
                     setEditingProxy(proxy)
                     setShowModal(true)
                   }}
-                  className="btn-outline px-3 py-1.5"
+                  className="btn btn-light btn-sm"
                 >
                   <i className="ki-duotone ki-pencil text-lg">
                     <span className="path1"></span>
@@ -195,7 +213,7 @@ export default function ServicesPage() {
                 </button>
                 <button
                   onClick={() => handleDelete(proxy.uid)}
-                  className="btn-outline px-3 py-1.5 text-red-500 hover:bg-red-50 hover:border-red-300"
+                  className="btn btn-light btn-sm text-red-500 hover:bg-red-50 hover:border-red-300"
                 >
                   <i className="ki-duotone ki-trash text-lg">
                     <span className="path1"></span>
@@ -267,7 +285,7 @@ export default function ServicesPage() {
               <span className="path2"></span>
             </i>
             <p className="text-gray-500 mb-4">No hay proxies configurados</p>
-            <button onClick={openNewModal} className="btn-primary">
+            <button onClick={openNewModal} className="btn btn-primary">
               Crear primer proxy
             </button>
           </div>
@@ -275,15 +293,48 @@ export default function ServicesPage() {
       </div>
 
       {/* Edit Modal */}
-      {showModal && editingProxy && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto m-4">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-secondary">
-                {editingProxy.uid ? 'Editar Proxy' : 'Nuevo Proxy'}
-              </h2>
+      {showModal && editingProxy && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+            onClick={() => {
+              setShowModal(false)
+              setEditingProxy(null)
+            }}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <i className="ki-duotone ki-setting-2 text-xl text-primary">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                  </i>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {editingProxy.uid ? 'Editar Proxy' : 'Nuevo Proxy'}
+                  </h3>
+                  <p className="text-sm text-gray-500">Configura el proxy y sus servicios disponibles</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowModal(false)
+                  setEditingProxy(null)
+                }}
+                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <i className="ki-duotone ki-cross text-xl text-gray-500">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+              </button>
             </div>
-            <div className="p-6 space-y-4">
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label">Nombre</label>
@@ -311,110 +362,278 @@ export default function ServicesPage() {
               </div>
 
               <div>
-                <label className="label mb-3">Servicios</label>
-                <div className="space-y-3">
-                  {Object.entries(ServiceLabels).map(([type, label]) => {
-                    const existingService = editingProxy.services.find((s) => s.type === type)
-                    const isEnabled = existingService?.isEnabled ?? false
-                    const tokenCost = existingService?.tokenCost ?? 0
-                    const hideInSearchForm = existingService?.hideInSearchForm ?? false
+                <div className="flex items-center justify-between mb-4">
+                  <label className="label">Servicios Configurados</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Find the first service type not already in use
+                      const usedTypes = editingProxy.services.map(s => s.type)
+                      const availableTypes = Object.keys(ServiceLabels) as ServiceType[]
+                      const nextType = availableTypes.find(t => !usedTypes.includes(t))
 
-                    return (
-                      <div key={type} className="p-4 border border-gray-200 rounded-xl">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="w-3 h-3 rounded-full"
-                              style={{ backgroundColor: ServiceColors[type as ServiceType] }}
-                            ></div>
-                            <span className="font-medium">{label}</span>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={isEnabled}
-                              onChange={(e) => {
-                                const services = [...editingProxy.services]
-                                const idx = services.findIndex((s) => s.type === type)
-                                if (idx >= 0) {
-                                  services[idx].isEnabled = e.target.checked
-                                } else {
-                                  services.push({
-                                    type: type as ServiceType,
-                                    isEnabled: e.target.checked,
-                                    hideInSearchForm: false,
-                                    tokenCost: 1,
-                                  })
-                                }
-                                setEditingProxy({ ...editingProxy, services })
-                              }}
-                              className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                          </label>
-                        </div>
-                        {isEnabled && (
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm text-gray-500">Costo en Tokens</label>
+                      if (nextType) {
+                        const services = [...editingProxy.services]
+                        services.push({
+                          type: nextType,
+                          isEnabled: true,
+                          tokenCost: 1,
+                          hideInSearchForm: false,
+                        })
+                        setEditingProxy({ ...editingProxy, services })
+                      } else {
+                        toast.warning('Todos los servicios ya están configurados')
+                      }
+                    }}
+                    className="btn btn-sm btn-light flex items-center gap-2"
+                  >
+                    <i className="ki-duotone ki-plus-circle">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Agregar Servicio
+                  </button>
+                </div>
+
+                {editingProxy.services.length === 0 ? (
+                  <div className="text-center py-8 bg-gray-50 rounded-xl">
+                    <i className="ki-duotone ki-information-5 text-4xl text-gray-300 mb-3">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                      <span className="path3"></span>
+                    </i>
+                    <p className="text-gray-500 text-sm">No hay servicios configurados</p>
+                    <p className="text-gray-400 text-xs mt-1">Haz clic en "Agregar Servicio" para comenzar</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {editingProxy.services.map((service, index) => {
+                      const availableTypes = Object.keys(ServiceLabels) as ServiceType[]
+                      const usedTypes = editingProxy.services.map(s => s.type).filter((t, i) => i !== index)
+
+                      return (
+                        <div key={index} className="p-4 border border-gray-200 rounded-xl bg-gray-50">
+                          <div className="grid grid-cols-12 gap-4 items-center">
+                            {/* Service Dropdown */}
+                            <div className="col-span-4 relative">
+                              <label className="text-xs text-gray-500 mb-1 block">Servicio</label>
+                              <div
+                                ref={(el) => {
+                                  if (el) dropdownRefs.current.set(index, el)
+                                }}
+                                className="relative"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenDropdown(openDropdown === index ? null : index)}
+                                  className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-left flex items-center justify-between hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                >
+                                  <span className="flex items-center gap-2">
+                                    <div
+                                      className="w-3 h-3 rounded-full"
+                                      style={{ backgroundColor: ServiceColors[service.type] }}
+                                    ></div>
+                                    {ServiceLabels[service.type]}
+                                  </span>
+                                  <i className="ki-duotone ki-down text-gray-400">
+                                    <span className="path1"></span>
+                                    <span className="path2"></span>
+                                  </i>
+                                </button>
+
+                                {openDropdown === index && typeof window !== 'undefined' && createPortal(
+                                  (() => {
+                                    const buttonRect = dropdownRefs.current.get(index)?.getBoundingClientRect()
+                                    if (!buttonRect) return null
+
+                                    const spaceBelow = window.innerHeight - buttonRect.bottom - 20
+                                    const spaceAbove = buttonRect.top - 20
+                                    const dropdownHeight = Math.min(240, availableTypes.length * 40)
+                                    const shouldShowAbove = spaceBelow < dropdownHeight && spaceAbove > spaceBelow
+
+                                    return (
+                                      <div
+                                        className="fixed z-[10000] bg-white border border-gray-200 rounded-lg shadow-lg overflow-auto"
+                                        style={{
+                                          left: `${buttonRect.left}px`,
+                                          width: `${buttonRect.width}px`,
+                                          ...(shouldShowAbove
+                                            ? {
+                                                bottom: `${window.innerHeight - buttonRect.top + 4}px`,
+                                                maxHeight: Math.min(240, spaceAbove)
+                                              }
+                                            : {
+                                                top: `${buttonRect.bottom + 4}px`,
+                                                maxHeight: Math.min(240, spaceBelow)
+                                              }
+                                          )
+                                        }}
+                                      >
+                                        {availableTypes.map(type => (
+                                          <button
+                                            key={type}
+                                            type="button"
+                                            disabled={usedTypes.includes(type)}
+                                            onClick={() => {
+                                              if (!usedTypes.includes(type)) {
+                                                const services = [...editingProxy.services]
+                                                services[index].type = type
+                                                setEditingProxy({ ...editingProxy, services })
+                                                setOpenDropdown(null)
+                                              }
+                                            }}
+                                            className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-50 ${
+                                              usedTypes.includes(type) ? 'opacity-50 cursor-not-allowed' : ''
+                                            }`}
+                                          >
+                                            <div
+                                              className="w-3 h-3 rounded-full"
+                                              style={{ backgroundColor: ServiceColors[type] }}
+                                            ></div>
+                                            {ServiceLabels[type]}
+                                            {usedTypes.includes(type) && (
+                                              <span className="text-xs text-gray-400 ml-auto">(En uso)</span>
+                                            )}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )
+                                  })(),
+                                  document.body
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Token Cost */}
+                            <div className="col-span-2">
+                              <label className="text-xs text-gray-500 mb-1 flex items-center gap-1">
+                                Tokens
+                                <div className="relative group">
+                                  <i className="ki-duotone ki-information-5 text-gray-400 cursor-help">
+                                    <span className="path1"></span>
+                                    <span className="path2"></span>
+                                    <span className="path3"></span>
+                                  </i>
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                                    Costo en tokens para usar este servicio
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              </label>
                               <input
                                 type="number"
-                                value={tokenCost}
+                                value={service.tokenCost || 0}
                                 onChange={(e) => {
                                   const services = [...editingProxy.services]
-                                  const idx = services.findIndex((s) => s.type === type)
-                                  if (idx >= 0) {
-                                    services[idx].tokenCost = parseInt(e.target.value) || 0
-                                    setEditingProxy({ ...editingProxy, services })
-                                  }
+                                  services[index].tokenCost = parseInt(e.target.value) || 0
+                                  setEditingProxy({ ...editingProxy, services })
                                 }}
-                                className="input-field py-1.5 text-sm mt-1"
+                                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                                 placeholder="1"
                                 min="0"
                               />
                             </div>
-                            <div className="flex items-end">
-                              <label className="flex items-center gap-2 cursor-pointer">
+
+                            {/* Enabled Switch */}
+                            <div className="col-span-2 text-center">
+                              <label className="text-xs text-gray-500 mb-1 block">Habilitado</label>
+                              <label className="relative inline-flex items-center cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  checked={hideInSearchForm}
+                                  checked={service.isEnabled}
                                   onChange={(e) => {
                                     const services = [...editingProxy.services]
-                                    const idx = services.findIndex((s) => s.type === type)
-                                    if (idx >= 0) {
-                                      services[idx].hideInSearchForm = e.target.checked
-                                      setEditingProxy({ ...editingProxy, services })
-                                    }
+                                    services[index].isEnabled = e.target.checked
+                                    setEditingProxy({ ...editingProxy, services })
                                   }}
-                                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  className="sr-only peer"
                                 />
-                                <span className="text-sm text-gray-600">Ocultar en búsqueda</span>
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
                               </label>
                             </div>
+
+                            {/* Hide in Search Form */}
+                            <div className="col-span-3 text-center">
+                              <label className="text-xs text-gray-500 mb-1 flex items-center gap-1 justify-center">
+                                Ocultar
+                                <div className="relative group">
+                                  <i className="ki-duotone ki-information-5 text-gray-400 cursor-help">
+                                    <span className="path1"></span>
+                                    <span className="path2"></span>
+                                    <span className="path3"></span>
+                                  </i>
+                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+                                    Ocultar este servicio en el formulario de búsqueda
+                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              </label>
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={service.hideInSearchForm || false}
+                                  onChange={(e) => {
+                                    const services = [...editingProxy.services]
+                                    services[index].hideInSearchForm = e.target.checked
+                                    setEditingProxy({ ...editingProxy, services })
+                                  }}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
+                              </label>
+                            </div>
+
+                            {/* Remove Button */}
+                            <div className="col-span-1 text-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const services = editingProxy.services.filter((_, i) => i !== index)
+                                  setEditingProxy({ ...editingProxy, services })
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Eliminar servicio"
+                              >
+                                <i className="ki-duotone ki-trash text-lg">
+                                  <span className="path1"></span>
+                                  <span className="path2"></span>
+                                  <span className="path3"></span>
+                                  <span className="path4"></span>
+                                  <span className="path5"></span>
+                                </i>
+                              </button>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
-            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
               <button
                 onClick={() => {
                   setShowModal(false)
                   setEditingProxy(null)
                 }}
-                className="btn-outline"
+                className="btn btn-secondary"
               >
                 Cancelar
               </button>
-              <button onClick={handleSave} className="btn-primary">
-                Guardar
+              <button onClick={handleSave} className="btn btn-primary flex items-center gap-2">
+                <i className="ki-duotone ki-check text-lg">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+                {editingProxy.uid ? 'Actualizar' : 'Crear'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
