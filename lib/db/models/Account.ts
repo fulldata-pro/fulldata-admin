@@ -10,15 +10,15 @@ import {
 } from '@/lib/constants'
 import { addUidMiddleware } from '../helpers/uid-middleware'
 
+export interface IProviderConfig {
+  isEnabled?: boolean
+  [key: string]: any // Permite configuraciones específicas del proveedor
+}
+
 export interface IServiceConfig {
-  maxRequestsPerDay?: number
-  maxRequestsPerMonth?: number
   webhookEnabled?: boolean
   apiEnabled?: boolean
-  didit?: {
-    apiKey?: string
-    workflowId?: string
-  }
+  [providerCode: string]: any // Permite proveedores dinámicos como keys directas
 }
 
 export interface IBilling {
@@ -76,14 +76,10 @@ export interface IAccount extends Document {
 
 const ServiceConfigSchema = new Schema<IServiceConfig>(
   {
-    maxRequestsPerDay: { type: Number },
-    maxRequestsPerMonth: { type: Number },
     webhookEnabled: { type: Boolean, default: false },
     apiEnabled: { type: Boolean, default: false },
-    didit: {
-      type: Schema.Types.Mixed,
-      default: undefined,
-    },
+    // Los proveedores se almacenan como keys dinámicas gracias a strict: false
+    // Ejemplo: didit: { isEnabled: true, apiKey: '...' }, renaper: { isEnabled: true }
   },
   { _id: false, strict: false }
 )

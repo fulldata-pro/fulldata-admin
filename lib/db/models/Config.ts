@@ -6,6 +6,12 @@ export enum ConfigReferralType {
   AMOUNT = 'AMOUNT',
 }
 
+export interface IProvider {
+  code: string
+  isEnabled: boolean
+  updatedAt?: Date
+}
+
 export interface IConfig extends Document {
   searches: {
     expirations: {
@@ -40,6 +46,7 @@ export interface IConfig extends Document {
       maxAmount: number
     }
   }
+  providers: IProvider[]
   createdAt: Date
   updatedAt: Date
   deletedAt?: Date
@@ -93,6 +100,13 @@ const ConfigSchema = new Schema<IConfig>(
         maxAmount: { type: Number, default: 50 },
       },
     },
+    providers: [
+      {
+        code: { type: String, required: true },
+        isEnabled: { type: Boolean, default: true },
+        updatedAt: { type: Date, default: Date.now },
+      },
+    ],
     deletedAt: { type: Date },
     deletedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },

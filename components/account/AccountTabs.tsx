@@ -7,6 +7,7 @@ import { TokensTab } from './TokensTab'
 import { ReportsTab } from './ReportsTab'
 import { ApiKeysTab } from './ApiKeysTab'
 import { WebhooksTab } from './WebhooksTab'
+import { ProvidersTab } from './ProvidersTab'
 import { EditBillingModal } from '@/components/modals/EditBillingModal'
 import { toast } from 'react-toastify'
 
@@ -100,7 +101,8 @@ export function AccountTabs({
     { id: 'tokens', label: 'Tokens', icon: 'ki-tag', count: null, color: 'blue' },
     { id: 'reports', label: 'Reportes', icon: 'ki-chart-line', count: null, color: 'purple' },
     { id: 'apikeys', label: 'API Keys', icon: 'ki-key', count: accountApis?.length || 0, color: 'orange' },
-    { id: 'webhooks', label: 'Webhooks', icon: 'ki-notification', count: webhooks?.length || 0, color: 'red' }
+    { id: 'webhooks', label: 'Webhooks', icon: 'ki-notification', count: webhooks?.length || 0, color: 'red' },
+    { id: 'providers', label: 'Proveedores', icon: 'ki-setting-2', count: null, color: 'cyan' }
   ]
 
   const getTabColor = (color: string, isActive: boolean) => {
@@ -113,6 +115,7 @@ export function AccountTabs({
         case 'purple': return 'bg-purple-50 text-purple-600 border-purple-200'
         case 'orange': return 'bg-orange-50 text-orange-600 border-orange-200'
         case 'red': return 'bg-red-50 text-red-600 border-red-200'
+        case 'cyan': return 'bg-cyan-50 text-cyan-600 border-cyan-200'
         case 'gray': return 'bg-gray-50 text-gray-600 border-gray-200'
         default: return 'bg-gray-50 text-gray-600 border-gray-200'
       }
@@ -130,6 +133,7 @@ export function AccountTabs({
         case 'purple': return 'text-purple-500'
         case 'orange': return 'text-orange-500'
         case 'red': return 'text-red-500'
+        case 'cyan': return 'text-cyan-500'
         case 'gray': return 'text-gray-500'
         default: return 'text-gray-500'
       }
@@ -336,18 +340,6 @@ export function AccountTabs({
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-2xl font-bold text-gray-900">
-                      {account.serviceConfig.maxRequestsPerDay || '∞'}
-                    </p>
-                    <p className="text-xs text-gray-500">Requests/Día</p>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
-                    <p className="text-2xl font-bold text-gray-900">
-                      {account.serviceConfig.maxRequestsPerMonth || '∞'}
-                    </p>
-                    <p className="text-xs text-gray-500">Requests/Mes</p>
-                  </div>
-                  <div className="text-center p-4 bg-gray-50 rounded-lg">
                     <span className={`badge ${account.serviceConfig.webhookEnabled ? 'badge-success' : 'badge-danger'}`}>
                       Webhooks {account.serviceConfig.webhookEnabled ? 'ON' : 'OFF'}
                     </span>
@@ -398,6 +390,12 @@ export function AccountTabs({
             accountId={account?._id}
             webhookEnabled={account?.serviceConfig?.webhookEnabled}
             onWebhooksUpdate={onWebhooksUpdate}
+          />
+        )}
+
+        {activeTab === 'providers' && (
+          <ProvidersTab
+            accountId={account?._id}
           />
         )}
       </div>

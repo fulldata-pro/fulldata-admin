@@ -95,8 +95,6 @@ export async function POST(request: NextRequest) {
       serviceConfig: {
         apiEnabled: body.apiEnabled !== undefined ? body.apiEnabled : true,
         webhookEnabled: body.webhookEnabled || false,
-        maxRequestsPerDay: body.maxRequestsPerDay ?? null,
-        maxRequestsPerMonth: body.maxRequestsPerMonth ?? null,
       },
       users: [{ user: user._id, role: "OWNER", addedAt: new Date() }],
       createdBy: admin._id,
