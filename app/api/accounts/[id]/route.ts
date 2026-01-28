@@ -98,14 +98,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (body.serviceConfig !== undefined) {
       account.serviceConfig = { ...account.serviceConfig, ...body.serviceConfig }
     }
-    if (body.maxRequestsPerDay !== undefined) {
-      account.serviceConfig = account.serviceConfig || {}
-      account.serviceConfig.maxRequestsPerDay = body.maxRequestsPerDay
-    }
-    if (body.maxRequestsPerMonth !== undefined) {
-      account.serviceConfig = account.serviceConfig || {}
-      account.serviceConfig.maxRequestsPerMonth = body.maxRequestsPerMonth
-    }
     if (body.webhookEnabled !== undefined) {
       account.serviceConfig = account.serviceConfig || {}
       account.serviceConfig.webhookEnabled = body.webhookEnabled

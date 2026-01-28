@@ -21,3 +21,4 @@ export { movementRepository, type ConsumptionByService, type ConsumptionDataPoin
 export { requestRepository, type RequestListOptions } from './request.repository'
 export { tokenBalanceRepository, type AddTokensResult } from './token-balance.repository'
 export { invoiceRepository } from './invoice.repository'
+export { configRepository } from './config.repository'
