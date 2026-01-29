@@ -23,6 +23,13 @@ export const AccountStatus = {
 
 export type AccountStatusType = (typeof AccountStatus)[keyof typeof AccountStatus]
 
+export const AccountStatusLabels: Record<AccountStatusType, string> = {
+  ACTIVE: 'Activa',
+  INACTIVE: 'Inactiva',
+  SUSPENDED: 'Suspendida',
+  PENDING: 'Pendiente',
+}
+
 export const UserStatus = {
   ACTIVE: 'ACTIVE',
   SUSPENDED: 'SUSPENDED',
@@ -186,6 +193,12 @@ export const AccountInvitationRole = {
 } as const
 
 export type AccountInvitationRoleType = (typeof AccountInvitationRole)[keyof typeof AccountInvitationRole]
+
+export const AccountUserRoleLabels: Record<AccountInvitationRoleType, string> = {
+  OWNER: 'Propietario',
+  ADMIN: 'Administrador',
+  MEMBER: 'Miembro',
+}
 
 export const AccountCreditSource = {
   PURCHASE: 'PURCHASE',
