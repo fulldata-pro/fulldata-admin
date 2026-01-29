@@ -95,7 +95,7 @@ export function AccountTabs({
   }
 
   const tabs = [
-    { id: 'overview', label: 'Información', icon: 'ki-information-circle', count: null },
+    { id: 'overview', label: 'Información', icon: 'ki-home-2', count: null },
     { id: 'users', label: 'Usuarios', icon: 'ki-people', count: account?.users?.length || 0 },
     { id: 'balance', label: 'Balance', icon: 'ki-wallet', count: null },
     { id: 'tokens', label: 'Tokens', icon: 'ki-tag', count: null },
@@ -107,52 +107,54 @@ export function AccountTabs({
 
   const getTabClasses = (isActive: boolean) => {
     if (isActive) {
-      return 'bg-primary/10 text-primary border-primary/20'
+      return 'bg-white text-primary shadow-md border-gray-100 scale-[1.02]'
     }
-    return 'text-gray-500 border-transparent hover:text-primary hover:bg-primary/5 hover:border-primary/10'
+    return 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-white/60 hover:shadow-sm'
   }
 
   const getIconClasses = (isActive: boolean) => {
     if (isActive) {
       return 'text-primary'
     }
-    return 'text-gray-400 group-hover:text-primary'
+    return 'text-gray-400 group-hover:text-gray-600'
   }
 
   return (
     <div>
       {/* Tab Navigation */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabClick(tab.id)}
-            className={`
-              group flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap border
-              ${getTabClasses(activeTab === tab.id)}
-            `}
-          >
-            <i className={`ki-duotone ${tab.icon} text-lg transition-colors ${getIconClasses(activeTab === tab.id)}`}>
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-              <span className="path4"></span>
-              <span className="path5"></span>
-            </i>
-            <span>{tab.label}</span>
-            {tab.count !== null && tab.count > 0 && (
-              <span className={`
-                px-2 py-0.5 rounded-full text-xs font-bold
-                ${activeTab === tab.id
-                  ? 'bg-primary/20 text-primary'
-                  : 'bg-gray-200 text-gray-600'
-                }
-              `}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="bg-gray-100/80 backdrop-blur-sm rounded-2xl p-1.5 mb-6 overflow-x-auto">
+        <div className="flex items-center gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabClick(tab.id)}
+              className={`
+                group flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 whitespace-nowrap border
+                ${getTabClasses(activeTab === tab.id)}
+              `}
+            >
+              <i className={`ki-duotone ${tab.icon} text-base transition-colors duration-200 ${getIconClasses(activeTab === tab.id)}`}>
+                <span className="path1"></span>
+                <span className="path2"></span>
+                <span className="path3"></span>
+                <span className="path4"></span>
+                <span className="path5"></span>
+              </i>
+              <span>{tab.label}</span>
+              {tab.count !== null && tab.count > 0 && (
+                <span className={`
+                  min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold flex items-center justify-center transition-colors duration-200
+                  ${activeTab === tab.id
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-300/80 text-gray-600 group-hover:bg-gray-300'
+                  }
+                `}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab Content */}
