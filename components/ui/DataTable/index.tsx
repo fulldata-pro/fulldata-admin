@@ -97,6 +97,12 @@ export interface DataTableProps<T> {
   selectable?: boolean
   selectedItems?: string[]
   onSelectionChange?: (selectedKeys: string[]) => void
+  /** Whether all items across all pages are selected */
+  allPagesSelected?: boolean
+  /** Callback when user clicks "Select all X items" */
+  onSelectAllPages?: () => void
+  /** Callback when user clicks "Clear selection" */
+  onClearSelection?: () => void
 
   // Actions
   actions?: ActionMenuItem<T>[]
@@ -112,8 +118,10 @@ export interface DataTableProps<T> {
 
   // Export
   exportConfig?: ExportConfig
-  /** @deprecated Use exportConfig instead */
-  exportData?: () => void
+  /** Custom export handler - if provided, will be called instead of built-in export */
+  onExport?: () => void
+  /** Whether export is in progress (for loading state) */
+  isExporting?: boolean
 
   // Styling
   glass?: boolean
@@ -173,6 +181,9 @@ export function DataTable<T>({
   selectable = false,
   selectedItems = [],
   onSelectionChange,
+  allPagesSelected = false,
+  onSelectAllPages,
+  onClearSelection,
   actions,
   onRowClick,
   emptyMessage = 'No se encontraron resultados',
@@ -182,7 +193,8 @@ export function DataTable<T>({
   headerAction,
   showHeader = true,
   exportConfig,
-  exportData,
+  onExport,
+  isExporting = false,
   glass = true,
   compact = false,
 }: DataTableProps<T>) {
@@ -425,8 +437,7 @@ export function DataTable<T>({
     downloadFile(xml, filename, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   }, [getExportColumns, getExportData, exportConfig])
 
-  const hasExport = exportConfig || exportData
-  const canExport = hasExport && selectedItems.length > 0
+  const hasExport = exportConfig || onExport
 
   // Separate text filter (search) from other filters
   const textFilter = filters?.find(f => f.type === 'text')
@@ -446,13 +457,19 @@ export function DataTable<T>({
 
   // Selection handlers
   const allKeys = sortedData.map(keyExtractor)
-  const isAllSelected = selectable && sortedData.length > 0 && allKeys.every((key) => selectedItems.includes(key))
-  const isSomeSelected = selectable && selectedItems.length > 0 && !isAllSelected
+  const isAllCurrentPageSelected = selectable && sortedData.length > 0 && allKeys.every((key) => selectedItems.includes(key))
+  const isAllSelected = isAllCurrentPageSelected || allPagesSelected
+  const isSomeSelected = selectable && selectedItems.length > 0 && !isAllSelected && !allPagesSelected
+  const totalItems = pagination?.total || sortedData.length
+  const showSelectAllBanner = selectable && isAllCurrentPageSelected && !allPagesSelected && totalItems > sortedData.length && onSelectAllPages
+  const canExport = hasExport && (selectedItems.length > 0 || allPagesSelected)
+  const exportCount = allPagesSelected ? totalItems : selectedItems.length
 
   const handleSelectAll = () => {
     if (!onSelectionChange) return
-    if (isAllSelected) {
+    if (isAllSelected || allPagesSelected) {
       onSelectionChange([])
+      onClearSelection?.()
     } else {
       onSelectionChange(allKeys)
     }
@@ -460,8 +477,12 @@ export function DataTable<T>({
 
   const handleSelectItem = (key: string) => {
     if (!onSelectionChange) return
+    // If all pages are selected and user deselects one, clear all pages selection
+    if (allPagesSelected) {
+      onClearSelection?.()
+    }
     if (selectedItems.includes(key)) {
-      onSelectionChange(selectedItems.filter((k) => k !== key))
+      onSelectionChange(selectedItems.filter(k => k !== key))
     } else {
       onSelectionChange([...selectedItems, key])
     }
@@ -539,23 +560,68 @@ export function DataTable<T>({
             {hasExport && (
               <button
                 type="button"
-                onClick={handleExportExcel}
-                disabled={!canExport}
+                onClick={onExport || handleExportExcel}
+                disabled={!canExport || isExporting}
                 className={`inline-flex items-center gap-2.5 h-11 px-4 text-sm font-medium rounded-xl border transition-all duration-200 ${
-                  canExport
+                  canExport && !isExporting
                     ? 'bg-white/80 border-slate-200/60 text-slate-600 hover:bg-slate-50 hover:border-slate-300/60'
                     : 'bg-slate-50/50 border-slate-200/40 text-slate-400 cursor-not-allowed'
                 }`}
-                title={canExport ? `Exportar ${selectedItems.length} elemento(s)` : 'Selecciona elementos para exportar'}
+                title={canExport ? `Exportar ${exportCount} elemento(s)` : 'Selecciona elementos para exportar'}
               >
-                <i className="ki-duotone ki-exit-down text-lg">
-                  <span className="path1"></span>
-                  <span className="path2"></span>
-                </i>
-                Exportar{selectedItems.length > 0 ? ` (${selectedItems.length})` : ''}
+                {isExporting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <i className="ki-duotone ki-exit-down text-lg">
+                      <span className="path1"></span>
+                      <span className="path2"></span>
+                    </i>
+                    Exportar{exportCount > 0 ? ` (${exportCount})` : ''}
+                  </>
+                )}
               </button>
             )}
           </form>
+        </div>
+      )}
+
+      {/* Selection Banner */}
+      {(showSelectAllBanner || allPagesSelected) && (
+        <div className={`${glass ? 'bg-primary/5 backdrop-blur-xl border border-primary/20' : 'bg-primary/5 border border-primary/10'} rounded-2xl px-4 py-3 mb-4`}>
+          <div className="flex items-center justify-center gap-2 text-sm">
+            {allPagesSelected ? (
+              <>
+                <span className="text-primary font-medium">
+                  Los {totalItems} elementos están seleccionados.
+                </span>
+                <button
+                  onClick={() => {
+                    onSelectionChange?.([])
+                    onClearSelection?.()
+                  }}
+                  className="text-primary hover:text-primary-dark font-medium underline underline-offset-2"
+                >
+                  Limpiar selección
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-gray-600">
+                  {selectedItems.length} elementos seleccionados en esta página.
+                </span>
+                <button
+                  onClick={() => onSelectAllPages?.()}
+                  className="text-primary hover:text-primary-dark font-medium underline underline-offset-2"
+                >
+                  Seleccionar todos los {totalItems} elementos
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -631,7 +697,7 @@ export function DataTable<T>({
               ) : (
                 sortedData.map((item, index) => {
                   const key = keyExtractor(item)
-                  const isSelected = selectedItems.includes(key)
+                  const isSelected = selectedItems.includes(key) || allPagesSelected
                   return (
                     <tr
                       key={key}

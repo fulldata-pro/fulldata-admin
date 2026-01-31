@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import Link from 'next/link'
+import * as XLSX from 'xlsx'
 import { formatDate, formatDateTime, getRelativeTime } from '@/lib/utils/dateUtils'
 import { formatNumber } from '@/lib/utils/currencyUtils'
 import { ROUTES, ServiceLabels } from '@/lib/constants'
+import { Checkbox } from '@/components/ui/Checkbox'
 
 interface Report {
   _id: string
@@ -48,6 +51,23 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
   const [reportsPage, setReportsPage] = useState(1)
   const [reportsPagination, setReportsPagination] = useState<Pagination | null>(null)
 
+  // Filter states
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [appliedDateFrom, setAppliedDateFrom] = useState('')
+  const [appliedDateTo, setAppliedDateTo] = useState('')
+
+  // Selection state
+  const [selectedReports, setSelectedReports] = useState<string[]>([])
+  const [allPagesSelected, setAllPagesSelected] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  // Filter popover state
+  const [filtersPopoverOpen, setFiltersPopoverOpen] = useState(false)
+  const [filtersPopoverPosition, setFiltersPopoverPosition] = useState<{ top: number; left: number } | null>(null)
+  const filtersButtonRef = useRef<HTMLButtonElement>(null)
+  const filtersPopoverRef = useRef<HTMLDivElement>(null)
+
   const fetchReports = useCallback(async () => {
     if (!accountId) return
     setIsLoadingReports(true)
@@ -56,6 +76,8 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
       params.set('page', String(reportsPage))
       params.set('limit', '10')
       params.set('accountId', accountId)
+      if (appliedDateFrom) params.set('dateFrom', appliedDateFrom)
+      if (appliedDateTo) params.set('dateTo', appliedDateTo)
 
       const response = await fetch(`/api/reports?${params}`)
       if (response.ok) {
@@ -68,7 +90,7 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
     } finally {
       setIsLoadingReports(false)
     }
-  }, [accountId, reportsPage])
+  }, [accountId, reportsPage, appliedDateFrom, appliedDateTo])
 
   useEffect(() => {
     fetchReports()
@@ -124,14 +146,254 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
     'ZAPIER': 'Zapier'
   }
 
+  // Filter popover handlers
+  const handleFiltersPopoverToggle = useCallback(() => {
+    if (filtersPopoverOpen) {
+      setFiltersPopoverOpen(false)
+      setFiltersPopoverPosition(null)
+    } else {
+      if (filtersButtonRef.current) {
+        const rect = filtersButtonRef.current.getBoundingClientRect()
+        setFiltersPopoverPosition({
+          top: rect.bottom + 8,
+          left: rect.left
+        })
+      }
+      // Sync temp values with applied values when opening
+      setDateFrom(appliedDateFrom)
+      setDateTo(appliedDateTo)
+      setFiltersPopoverOpen(true)
+    }
+  }, [filtersPopoverOpen, appliedDateFrom, appliedDateTo])
+
+  // Close filters popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filtersPopoverRef.current && !filtersPopoverRef.current.contains(event.target as Node) &&
+          filtersButtonRef.current && !filtersButtonRef.current.contains(event.target as Node)) {
+        setFiltersPopoverOpen(false)
+        setFiltersPopoverPosition(null)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleApplyFilters = () => {
+    setAppliedDateFrom(dateFrom)
+    setAppliedDateTo(dateTo)
+    setReportsPage(1)
+    setSelectedReports([])
+    setAllPagesSelected(false)
+    setFiltersPopoverOpen(false)
+    setFiltersPopoverPosition(null)
+  }
+
+  const handleClearFilters = () => {
+    setDateFrom('')
+    setDateTo('')
+    setAppliedDateFrom('')
+    setAppliedDateTo('')
+    setReportsPage(1)
+    setSelectedReports([])
+    setAllPagesSelected(false)
+    setFiltersPopoverOpen(false)
+    setFiltersPopoverPosition(null)
+  }
+
+  // Page change handler - clears selection unless all pages are selected
+  const handlePageChange = (newPage: number) => {
+    setReportsPage(newPage)
+    if (!allPagesSelected) {
+      setSelectedReports([])
+    }
+  }
+
+  const hasActiveFilters = appliedDateFrom || appliedDateTo
+  const activeFiltersCount = (appliedDateFrom ? 1 : 0) + (appliedDateTo ? 1 : 0)
+
+  // Selection handlers
+  const handleSelectAll = () => {
+    if (selectedReports.length === reports.length) {
+      setSelectedReports([])
+      setAllPagesSelected(false)
+    } else {
+      setSelectedReports(reports.map(r => r.uid))
+    }
+  }
+
+  const handleSelectReport = (uid: string) => {
+    setAllPagesSelected(false) // Reset all pages selection when individual selection changes
+    setSelectedReports(prev =>
+      prev.includes(uid)
+        ? prev.filter(id => id !== uid)
+        : [...prev, uid]
+    )
+  }
+
+  const handleSelectAllPages = () => {
+    setAllPagesSelected(true)
+    setSelectedReports(reports.map(r => r.uid)) // Also select current page visually
+  }
+
+  const handleClearSelection = () => {
+    setSelectedReports([])
+    setAllPagesSelected(false)
+  }
+
+  const isAllCurrentPageSelected = reports.length > 0 && selectedReports.length === reports.length
+  const isAllSelected = isAllCurrentPageSelected || allPagesSelected
+  const isSomeSelected = !allPagesSelected && selectedReports.length > 0 && selectedReports.length < reports.length
+  const totalReports = reportsPagination?.total || 0
+  const showSelectAllBanner = isAllCurrentPageSelected && !allPagesSelected && totalReports > reports.length
+
+  // Export handler - using xlsx library
+  const handleExportExcel = async () => {
+    setIsExporting(true)
+
+    try {
+      let dataToExport: Report[]
+
+      if (allPagesSelected) {
+        // Fetch all reports from backend
+        const params = new URLSearchParams()
+        params.set('accountId', accountId)
+        params.set('limit', '10000') // Large limit to get all
+        if (appliedDateFrom) params.set('dateFrom', appliedDateFrom)
+        if (appliedDateTo) params.set('dateTo', appliedDateTo)
+
+        const response = await fetch(`/api/reports?${params}`)
+        if (!response.ok) throw new Error('Error al obtener reportes')
+        const data = await response.json()
+        dataToExport = data.reports
+      } else {
+        // Export only selected reports from current page
+        dataToExport = reports.filter(r => selectedReports.includes(r.uid))
+      }
+
+      const exportData = dataToExport.map(report => ({
+        'ID': report.id,
+        'Búsqueda': report.type === 'IDENTITY' && report.metadata?.fullName
+          ? report.metadata.fullName
+          : report.searchQuery || '-',
+        'Tipo': typeLabels[report.type] || report.type,
+        'Origen': report.source ? sourceLabels[report.source] || report.source : '-',
+        'Estado': statusLabels[report.status] || report.status,
+        'Usuario': report.user ? `${report.user.firstName} ${report.user.lastName}` : '-',
+        'Fecha': formatDateTime(report.createdAt),
+        'Eliminado': report.deletedAt ? 'Sí' : 'No'
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(exportData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Reportes')
+
+      const filename = `reportes-cuenta-${accountId}.xlsx`
+      XLSX.writeFile(wb, filename)
+    } catch (error) {
+      console.error('Error exporting:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="rounded-2xl bg-white shadow-sm border border-gray-100">
       <div className="p-6 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-secondary">Reportes Generados</h3>
-        <p className="text-gray-500 text-sm mt-1">
-          Historial de reportes y búsquedas
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-secondary">Reportes Generados</h3>
+            <p className="text-gray-500 text-sm mt-1">
+              Historial de reportes y búsquedas
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Filters button */}
+            <button
+              ref={filtersButtonRef}
+              type="button"
+              onClick={handleFiltersPopoverToggle}
+              className={`inline-flex items-center gap-2 h-10 px-4 text-sm font-medium rounded-xl border transition-all duration-200 ${
+                activeFiltersCount > 0
+                  ? 'bg-primary/5 border-primary/30 text-primary hover:bg-primary/10'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+              }`}
+            >
+              <i className="ki-duotone ki-filter text-lg">
+                <span className="path1"></span>
+                <span className="path2"></span>
+              </i>
+              Filtros
+              {activeFiltersCount > 0 && (
+                <span className="inline-flex items-center justify-center w-5 h-5 text-[11px] font-semibold bg-primary text-white rounded-full">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
+
+            {/* Export button */}
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={selectedReports.length === 0 && !allPagesSelected || isExporting}
+              className={`inline-flex items-center gap-2 h-10 px-4 text-sm font-medium rounded-xl border transition-all duration-200 ${
+                (selectedReports.length > 0 || allPagesSelected) && !isExporting
+                  ? 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                  : 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
+              }`}
+              title={allPagesSelected ? `Exportar todos los ${totalReports} reportes` : selectedReports.length > 0 ? `Exportar ${selectedReports.length} reporte(s)` : 'Selecciona reportes para exportar'}
+            >
+              {isExporting ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></span>
+                  Exportando...
+                </>
+              ) : (
+                <>
+                  <i className="ki-duotone ki-exit-down text-lg">
+                    <span className="path1"></span>
+                    <span className="path2"></span>
+                  </i>
+                  Exportar{allPagesSelected ? ` (${totalReports})` : selectedReports.length > 0 ? ` (${selectedReports.length})` : ''}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Selection banner */}
+      {(showSelectAllBanner || allPagesSelected) && (
+        <div className="px-6 py-3 bg-primary/5 border-b border-primary/10">
+          <div className="flex items-center justify-center gap-2 text-sm">
+            {allPagesSelected ? (
+              <>
+                <span className="text-primary font-medium">
+                  Los {totalReports} reportes están seleccionados.
+                </span>
+                <button
+                  onClick={handleClearSelection}
+                  className="text-primary hover:text-primary-dark font-medium underline underline-offset-2"
+                >
+                  Limpiar selección
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-gray-600">
+                  {selectedReports.length} reportes seleccionados en esta página.
+                </span>
+                <button
+                  onClick={handleSelectAllPages}
+                  className="text-primary hover:text-primary-dark font-medium underline underline-offset-2"
+                >
+                  Seleccionar todos los {totalReports} reportes
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="overflow-x-auto">
         {isLoadingReports ? (
@@ -157,6 +419,14 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
             <table className="table-auto w-full">
               <thead className="bg-gray-50 border-y border-gray-100">
                 <tr>
+                  <th className="table-header w-14">
+                    <Checkbox
+                      checked={isAllSelected}
+                      indeterminate={isSomeSelected}
+                      onChange={handleSelectAll}
+                      size="sm"
+                    />
+                  </th>
                   <th className="table-header">ID</th>
                   <th className="table-header">Búsqueda</th>
                   <th className="table-header">Tipo</th>
@@ -169,7 +439,14 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {reports.map((report) => (
-                  <tr key={report.uid} className="hover:bg-gray-50 transition-colors">
+                  <tr key={report.uid} className={`hover:bg-gray-50 transition-colors ${selectedReports.includes(report.uid) || allPagesSelected ? 'bg-primary/5' : ''}`}>
+                    <td className="table-cell w-14">
+                      <Checkbox
+                        checked={selectedReports.includes(report.uid) || allPagesSelected}
+                        onChange={() => handleSelectReport(report.uid)}
+                        size="sm"
+                      />
+                    </td>
                     <td className="table-cell">
                       <span className="font-mono text-sm text-gray-600">
                         #{report.id}
@@ -281,7 +558,7 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setReportsPage(reportsPage - 1)}
+                      onClick={() => handlePageChange(reportsPage - 1)}
                       disabled={reportsPage === 1}
                       className="btn btn-sm btn-light"
                     >
@@ -299,7 +576,7 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
                             <span className="text-gray-400">...</span>
                           )}
                           <button
-                            onClick={() => setReportsPage(page)}
+                            onClick={() => handlePageChange(page)}
                             className={`btn btn-sm ${reportsPage === page ? 'btn-primary' : 'btn-light'}`}
                           >
                             {page}
@@ -307,7 +584,7 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
                         </div>
                       ))}
                     <button
-                      onClick={() => setReportsPage(reportsPage + 1)}
+                      onClick={() => handlePageChange(reportsPage + 1)}
                       disabled={!reportsPagination.hasMore}
                       className="btn btn-sm btn-light"
                     >
@@ -321,6 +598,63 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
           </>
         )}
       </div>
+
+      {/* Filters Popover Portal */}
+      {filtersPopoverOpen && filtersPopoverPosition && typeof window !== 'undefined' && createPortal(
+        <div
+          ref={filtersPopoverRef}
+          className="fixed bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl shadow-gray-200/50 border border-gray-200 p-5 z-[99999] animate-fade-in min-w-[280px]"
+          style={{
+            top: `${filtersPopoverPosition.top}px`,
+            left: `${filtersPopoverPosition.left}px`,
+          }}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Fecha desde
+              </label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full h-10 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Fecha hasta
+              </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full h-10 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-5 pt-4 border-t border-gray-100">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="flex-1 h-9 px-3 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Limpiar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={handleApplyFilters}
+              className="flex-1 h-9 px-3 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
