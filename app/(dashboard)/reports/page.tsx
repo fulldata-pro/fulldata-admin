@@ -32,6 +32,7 @@ interface Report {
     email: string
   }
   createdAt: string
+  deletedAt?: string | null
 }
 
 const DEFAULT_PAGE_SIZE = 10
@@ -171,11 +172,28 @@ export default function ReportsPage() {
     {
       key: 'status',
       header: 'Estado',
-      exportValue: (report) => statusLabels[report.status] || report.status,
+      exportValue: (report) => `${statusLabels[report.status] || report.status}${report.deletedAt ? ' (Eliminado)' : ''}`,
       render: (report) => (
-        <Badge variant={statusVariants[report.status] || 'gray'}>
-          {statusLabels[report.status] || report.status}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={statusVariants[report.status] || 'gray'}>
+            {statusLabels[report.status] || report.status}
+          </Badge>
+          {report.deletedAt && (
+            <div className="relative group">
+              <i className="ki-duotone ki-trash text-red-400 text-base cursor-help">
+                <span className="path1"></span>
+                <span className="path2"></span>
+                <span className="path3"></span>
+                <span className="path4"></span>
+                <span className="path5"></span>
+              </i>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                Eliminado por el usuario
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          )}
+        </div>
       )
     },
     {

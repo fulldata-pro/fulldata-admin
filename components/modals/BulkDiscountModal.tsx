@@ -125,39 +125,40 @@ export function BulkDiscountModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden transform transition-all animate-in zoom-in-95 duration-300">
-        {/* Header with gradient */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-600 px-8 pt-8 pb-6 text-white">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -mr-20 -mt-20"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16"></div>
-
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 text-white/80 hover:text-white transition-colors"
-            disabled={isLoading}
-          >
-            <i className="ki-duotone ki-cross text-2xl">
-              <span className="path1"></span>
-              <span className="path2"></span>
-            </i>
-          </button>
-
-          <div className="relative">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4">
-              <i className="ki-duotone ki-discount text-4xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+              <i className="ki-duotone ki-discount text-xl text-green-600">
                 <span className="path1"></span>
                 <span className="path2"></span>
               </i>
             </div>
-            <h3 className="text-2xl font-bold">{title}</h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+              <p className="text-sm text-gray-500">Configura los niveles de descuento por volumen</p>
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center transition-colors"
+            disabled={isLoading}
+          >
+            <i className="ki-duotone ki-cross text-xl text-gray-500">
+              <span className="path1"></span>
+              <span className="path2"></span>
+            </i>
+          </button>
         </div>
 
-        {/* Content with scroll */}
-        <div className="overflow-y-auto max-h-[calc(90vh-200px)]">
-          <form onSubmit={handleSubmit} className="p-8">
+        {/* Content */}
+        <form id="bulk-discount-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-5">
             <div className="space-y-6">
               {/* Basic Info */}
               <div className="space-y-4">
@@ -327,42 +328,39 @@ export function BulkDiscountModal({
                 </div>
               )}
             </div>
+        </form>
 
-            {/* Actions */}
-            <div className="flex gap-3 mt-8">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isLoading}
-                className="flex-1 px-6 py-3 text-gray-600 hover:text-gray-800 font-medium transition-colors rounded-xl hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isLoading || !formData.name}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-lg flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <i className="ki-duotone ki-loading animate-spin text-xl">
-                      <span className="path1"></span>
-                      <span className="path2"></span>
-                    </i>
-                    Guardando...
-                  </>
-                ) : (
-                  <>
-                    <i className="ki-duotone ki-check text-xl">
-                      <span className="path1"></span>
-                      <span className="path2"></span>
-                    </i>
-                    Guardar Descuento
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-secondary"
+            disabled={isLoading}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="bulk-discount-form"
+            className="btn btn-primary flex items-center gap-2"
+            disabled={isLoading || !formData.name}
+          >
+            {isLoading ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                Guardando...
+              </>
+            ) : (
+              <>
+                <i className="ki-duotone ki-check text-lg">
+                  <span className="path1"></span>
+                  <span className="path2"></span>
+                </i>
+                Guardar Descuento
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>,

@@ -10,6 +10,7 @@ interface AccountDTO {
   uid: string
   email: string
   avatar?: string
+  name?: string
   billingName?: string
 }
 
@@ -73,6 +74,7 @@ export function toReceiptListItemDTO(receipt: IReceipt): ReceiptListItemDTO {
     uid: accountId.uid,
     email: accountId.email,
     avatar: accountId.avatar,
+    name: accountId.name,
     billingName: accountId.billing?.name,
   } : {
     uid: '',

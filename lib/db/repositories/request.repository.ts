@@ -18,9 +18,7 @@ class RequestRepository extends BaseRepository<IRequest> {
   }
 
   private buildSearchQuery(options: RequestListOptions): FilterQuery<IRequest> {
-    const query: FilterQuery<IRequest> = {
-      deletedAt: { $exists: false },
-    }
+    const query: FilterQuery<IRequest> = {}
 
     if (options.search) {
       const searchRegex = new RegExp(options.search, 'i')
@@ -64,6 +62,7 @@ class RequestRepository extends BaseRepository<IRequest> {
         { path: 'accountId', select: 'uid email name billing.name' },
         { path: 'userId', select: 'uid firstName lastName email' },
       ],
+      includeDeleted: true, // Admin needs to see all reports for billing purposes
     })
   }
 

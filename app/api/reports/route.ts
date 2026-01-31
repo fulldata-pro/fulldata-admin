@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
         user,
         metadata,
         createdAt: report.createdAt,
+        deletedAt: report.deletedAt || null,
       }
     })
 

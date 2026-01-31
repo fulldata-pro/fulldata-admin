@@ -27,6 +27,7 @@ interface Report {
     params?: any
   }
   createdAt: string
+  deletedAt?: string | null
 }
 
 interface Pagination {
@@ -76,20 +77,28 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
   // Status labels and styles
   const statusLabels: Record<string, string> = {
     'PENDING': 'Pendiente',
+    'REVIEW_NEEDED': 'Rev. necesaria',
     'PROCESSING': 'Procesando',
+    'PARTIAL': 'Parcial',
+    'NOT_FOUND': 'No encontrado',
     'COMPLETED': 'Completado',
     'CANCELLED': 'Cancelado',
     'ERROR': 'Error',
-    'FAILED': 'Fallido'
+    'FAILED': 'Fallido',
+    'EXPIRED': 'Expirado'
   }
 
   const statusStyles: Record<string, string> = {
-    'PENDING': 'badge-warning',
+    'PENDING': 'badge-gray',
+    'REVIEW_NEEDED': 'badge-warning',
     'PROCESSING': 'badge-info',
+    'PARTIAL': 'badge-purple',
+    'NOT_FOUND': 'badge-gray',
     'COMPLETED': 'badge-success',
     'CANCELLED': 'badge-gray',
     'ERROR': 'badge-danger',
-    'FAILED': 'badge-danger'
+    'FAILED': 'badge-danger',
+    'EXPIRED': 'badge-gray'
   }
 
   // Type labels - map old report types to new service types
@@ -204,9 +213,26 @@ export function ReportsTab({ accountId }: ReportsTabProps) {
                       )}
                     </td>
                     <td className="table-cell">
-                      <span className={`badge ${statusStyles[report.status] || 'badge-gray'}`}>
-                        {statusLabels[report.status] || report.status}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`badge ${statusStyles[report.status] || 'badge-gray'}`}>
+                          {statusLabels[report.status] || report.status}
+                        </span>
+                        {report.deletedAt && (
+                          <div className="relative group">
+                            <i className="ki-duotone ki-trash text-red-400 text-base cursor-help">
+                              <span className="path1"></span>
+                              <span className="path2"></span>
+                              <span className="path3"></span>
+                              <span className="path4"></span>
+                              <span className="path5"></span>
+                            </i>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                              Eliminado por el usuario
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="table-cell">
                       {report.user ? (

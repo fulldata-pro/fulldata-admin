@@ -44,6 +44,7 @@ interface Account {
   uid: string
   email: string
   avatar?: string
+  name?: string
   billingName?: string
 }
 
@@ -172,7 +173,7 @@ export default function ReceiptsPage() {
     {
       key: 'account',
       header: 'Cuenta',
-      exportValue: (receipt) => receipt.account?.billingName || receipt.account?.email || 'N/A',
+      exportValue: (receipt) => receipt.account?.billingName || receipt.account?.name || receipt.account?.email || 'N/A',
       render: (receipt) => (
         <div className="flex items-center gap-3">
           {receipt.account?.avatar ? (
@@ -184,7 +185,7 @@ export default function ReceiptsPage() {
           ) : (
             <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
               <span className="text-xs text-gray-500">
-                {(receipt.account?.billingName || receipt.account?.email || '?')[0].toUpperCase()}
+                {(receipt.account?.billingName || receipt.account?.name || receipt.account?.email || '?')[0].toUpperCase()}
               </span>
             </div>
           )}
@@ -192,7 +193,7 @@ export default function ReceiptsPage() {
             href={ROUTES.ACCOUNT_DETAIL(receipt.account?.uid || '')}
             className="font-medium text-gray-900 hover:text-primary transition-colors"
           >
-            {receipt.account?.billingName || receipt.account?.email || 'N/A'}
+            {receipt.account?.billingName || receipt.account?.name || receipt.account?.email || 'N/A'}
           </Link>
         </div>
       )
