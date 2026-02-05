@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useSelector } from 'react-redux'
 import { RootState } from '@/store/store'
 import { toast } from 'react-toastify'
 import { AdminStatus } from '@/lib/constants'
-import { DataTable, Badge, Avatar, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
+import { DataTable, Badge, Avatar, ActionIcon, type Column, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal'
@@ -27,16 +27,11 @@ interface Admin {
 const DEFAULT_PAGE_SIZE = 10
 
 export default function AdminsPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const currentAdmin = useSelector((state: RootState) => state.auth.admin)
   const [admins, setAdmins] = useState<Admin[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [search, setSearch] = useState(searchParams?.get('search') || '')
-  const [status, setStatus] = useState(searchParams?.get('status') || '')
-  const [pageSize, setPageSize] = useState(parseInt(searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE)))
-  const [selectedAdmins, setSelectedAdmins] = useState<string[]>([])
   const [showModal, setShowModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<Partial<Admin> & { password?: string } | null>(null)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
@@ -53,9 +48,7 @@ export default function AdminsPage() {
     try {
       const params = new URLSearchParams()
       params.set('page', searchParams?.get('page') || '1')
-      params.set('limit', String(pageSize))
-      if (search) params.set('search', search)
-      if (status) params.set('status', status)
+      params.set('limit', searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE))
 
       const response = await fetch(`/api/admins?${params}`)
       if (response.ok) {
@@ -71,7 +64,7 @@ export default function AdminsPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [search, status, pageSize, searchParams])
+  }, [searchParams])
 
   useEffect(() => {
     fetchAdmins()
@@ -188,10 +181,7 @@ export default function AdminsPage() {
       render: (admin) => (
         <div className="flex items-center gap-3">
           <Avatar name={admin.name} gradient />
-          <div>
-            <p className="font-medium text-secondary">{admin.name}</p>
-            <p className="text-sm text-gray-500">{admin.email}</p>
-          </div>
+          <p className="font-medium text-secondary">{admin.name}</p>
         </div>
       )
     },
@@ -234,27 +224,6 @@ export default function AdminsPage() {
           {formatDateTime(admin.createdAt)}
         </span>
       )
-    }
-  ]
-
-  const exportConfig: ExportConfig = {
-    filename: 'administradores'
-  }
-
-  const filters: FilterConfig[] = [
-    {
-      key: 'search',
-      label: 'Buscar',
-      type: 'text',
-      placeholder: 'Nombre o email...',
-    },
-    {
-      key: 'status',
-      label: 'Estado',
-      type: 'select',
-      placeholder: 'Todos',
-      options: Object.values(AdminStatus).map((s) => ({ value: s, label: getStatusLabel(s) })),
-      className: 'w-40'
     }
   ]
 
@@ -324,29 +293,6 @@ export default function AdminsPage() {
     }
   ]
 
-  const handleFilterSubmit = () => {
-    const params = new URLSearchParams()
-    if (search) params.set('search', search)
-    if (status) params.set('status', status)
-    if (pageSize !== DEFAULT_PAGE_SIZE) params.set('limit', String(pageSize))
-    router.push(`/admins?${params}`)
-  }
-
-  const handleFilterClear = () => {
-    setSearch('')
-    setStatus('')
-    setPageSize(DEFAULT_PAGE_SIZE)
-    router.push('/admins')
-  }
-
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize)
-    const params = new URLSearchParams(searchParams?.toString() || '')
-    params.set('limit', String(newSize))
-    params.set('page', '1')
-    router.push(`/admins?${params}`)
-  }
-
   return (
     <>
       <DataTable
@@ -356,18 +302,6 @@ export default function AdminsPage() {
         isLoading={isLoading}
         pagination={pagination}
         basePath="/admins"
-        onPageSizeChange={handlePageSizeChange}
-        filters={filters}
-        filterValues={{ search, status }}
-        onFilterChange={(key, value) => {
-          if (key === 'search') setSearch(value)
-          if (key === 'status') setStatus(value)
-        }}
-        onFilterSubmit={handleFilterSubmit}
-        onFilterClear={handleFilterClear}
-        selectable
-        selectedItems={selectedAdmins}
-        onSelectionChange={setSelectedAdmins}
         actions={actions}
         title="Administradores"
         subtitle="Gestiona los usuarios administrativos"
@@ -387,7 +321,6 @@ export default function AdminsPage() {
           </button>
         }
         emptyMessage="No se encontraron administradores"
-        exportConfig={exportConfig}
       />
 
       {/* Modal */}
