@@ -1,15 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '@/store/store'
 import { setAdmin, setLoading } from '@/store/slices/authSlice'
 import Sidebar from './Sidebar'
 import Header from './Header'
-
-const DEFAULT_SIDEBAR_WIDTH = 256
-const SIDEBAR_WIDTH_KEY = 'sidebar-width'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -20,19 +17,6 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
   const router = useRouter()
   const dispatch = useDispatch()
   const { isAuthenticated, isLoading } = useSelector((state: RootState) => state.auth)
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
-
-  useEffect(() => {
-    const savedWidth = localStorage.getItem(SIDEBAR_WIDTH_KEY)
-    if (savedWidth) {
-      setSidebarWidth(Number(savedWidth))
-    }
-  }, [])
-
-  const handleSidebarWidthChange = useCallback((width: number) => {
-    setSidebarWidth(width)
-    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(width))
-  }, [])
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -73,8 +57,8 @@ export default function DashboardLayout({ children, title }: DashboardLayoutProp
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Sidebar width={sidebarWidth} onWidthChange={handleSidebarWidthChange} />
-      <div style={{ marginLeft: `${sidebarWidth}px` }} className="transition-[margin] duration-0">
+      <Sidebar />
+      <div className="ml-64">
         <Header title={title} />
         <main className="p-6">{children}</main>
       </div>
