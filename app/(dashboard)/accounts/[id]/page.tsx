@@ -193,7 +193,7 @@ export default function AccountDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500">
         <Link href={ROUTES.ACCOUNTS} className="hover:text-primary transition-colors">
