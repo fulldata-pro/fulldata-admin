@@ -1,8 +1,10 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { toast } from 'react-toastify'
+import { ROUTES } from '@/lib/constants'
 import { AccountHeader } from '@/components/account/AccountHeader'
 import { AccountTabs } from '@/components/account/AccountTabs'
 
@@ -40,7 +42,7 @@ export default function AccountDetailPage() {
     } catch (error) {
       console.error('Error fetching account:', error)
       toast.error('Error al cargar la cuenta')
-      router.push('/accounts')
+      router.push(ROUTES.ACCOUNTS)
     }
   }, [id, router])
 
@@ -191,7 +193,19 @@ export default function AccountDetailPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500">
+        <Link href={ROUTES.ACCOUNTS} className="hover:text-primary transition-colors">
+          Cuentas
+        </Link>
+        <i className="ki-duotone ki-right text-xs">
+          <span className="path1"></span>
+          <span className="path2"></span>
+        </i>
+        <span className="text-gray-900 font-medium">{account.name}</span>
+      </nav>
+
       <AccountHeader
         account={account}
         tokenBalance={tokenBalance}
@@ -200,19 +214,17 @@ export default function AccountDetailPage() {
         onBillingUpdated={handleBillingUpdated}
       />
 
-      <div className="mt-8">
-        <AccountTabs
-          account={account}
-          tokenBalance={tokenBalance}
-          accountApis={accountApis}
-          webhooks={webhooks}
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          onBalanceUpdate={handleBalanceUpdate}
-          onApiKeysUpdate={refreshApiKeys}
-          onWebhooksUpdate={refreshWebhooks}
-        />
-      </div>
+      <AccountTabs
+        account={account}
+        tokenBalance={tokenBalance}
+        accountApis={accountApis}
+        webhooks={webhooks}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        onBalanceUpdate={handleBalanceUpdate}
+        onApiKeysUpdate={refreshApiKeys}
+        onWebhooksUpdate={refreshWebhooks}
+      />
     </div>
   )
 }

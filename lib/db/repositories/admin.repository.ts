@@ -1,4 +1,5 @@
 import { Types } from 'mongoose'
+import bcrypt from 'bcryptjs'
 import { BaseRepository } from './base.repository'
 import Admin, { IAdmin } from '../models/Admin'
 import { ExtendedModel } from '@/lib/db/types/model.types'
@@ -64,7 +65,10 @@ class AdminRepository extends BaseRepository<IAdmin> {
   async createAdmin(data: CreateAdminData): Promise<IAdmin> {
     await this.ensureConnection()
 
+    const nextId = await this.getNextId()
+
     const admin = new this.model({
+      id: nextId,
       name: data.name,
       email: data.email,
       password: data.password,
@@ -90,8 +94,12 @@ class AdminRepository extends BaseRepository<IAdmin> {
     }
 
     // If password is empty or not provided, remove it from update
+    // Otherwise hash it (findByIdAndUpdate doesn't trigger pre-save hooks)
     if (!updateData.password) {
       delete updateData.password
+    } else {
+      const salt = await bcrypt.genSalt(12)
+      updateData.password = await bcrypt.hash(updateData.password as string, salt)
     }
 
     return this.model.findByIdAndUpdate(

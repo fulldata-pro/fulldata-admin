@@ -46,7 +46,7 @@ const AdminSchema = new Schema<IAdmin>(
     name: { type: String, required: true },
     avatar: { type: String },
     phone: { type: String },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true },
     password: { type: String, required: true },
     status: {
       type: String,
@@ -71,6 +71,9 @@ const AdminSchema = new Schema<IAdmin>(
     timestamps: false,
   }
 )
+
+// Unique email only among non-deleted records
+AdminSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { deletedAt: null } })
 
 // Agregar middleware para generar uid desde _id
 addUidMiddleware(AdminSchema)

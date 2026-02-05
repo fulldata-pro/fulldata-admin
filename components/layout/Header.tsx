@@ -6,7 +6,6 @@ import { useSelector, useDispatch } from 'react-redux'
 import { RootState } from '@/store/store'
 import { logout } from '@/store/slices/authSlice'
 import { toast } from 'react-toastify'
-import { ROUTES } from '@/lib/constants'
 import { formatCurrency } from '@/lib/utils/currencyUtils'
 
 interface TokenPrice {
@@ -174,37 +173,7 @@ export default function Header({ title }: HeaderProps) {
                   <p className="text-sm font-medium text-gray-900">{admin?.name}</p>
                   <p className="text-xs text-gray-500">{admin?.email}</p>
                 </div>
-                <ul className="py-1">
-                  <li>
-                    <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                      <i className="ki-duotone ki-profile-circle text-xl text-gray-400">
-                        <span className="path1"></span>
-                        <span className="path2"></span>
-                        <span className="path3"></span>
-                      </i>
-                      Mi Perfil
-                    </button>
-                  </li>
-                  <li>
-                    <button
-                      onClick={() => {
-                        setShowDropdown(false)
-                        router.push(ROUTES.SETTINGS)
-                      }}
-                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <i className="ki-duotone ki-setting-3 text-xl text-gray-400">
-                        <span className="path1"></span>
-                        <span className="path2"></span>
-                        <span className="path3"></span>
-                        <span className="path4"></span>
-                        <span className="path5"></span>
-                      </i>
-                      Configuración
-                    </button>
-                  </li>
-                </ul>
-                <div className="border-t border-gray-100 pt-1">
+                <div className="pt-1">
                   <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50"

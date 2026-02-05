@@ -161,14 +161,6 @@ export function VerifyContactModal({
             </div>
           </div>
 
-          {/* Current value info */}
-          {hasCurrentValue && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-xl">
-              <p className="text-xs text-gray-500 mb-1">{label} actual registrado:</p>
-              <p className="font-medium text-gray-900">{currentValue}</p>
-            </div>
-          )}
-
           {/* Input */}
           <div className="mb-6">
             {isEmail ? (
