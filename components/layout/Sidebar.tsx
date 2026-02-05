@@ -125,7 +125,7 @@ export default function Sidebar() {
             <div className="sidebar-footer-glow"></div>
             <div className="relative z-10">
               <p className="text-xs font-semibold text-white/90 mb-0.5">Fulldata Admin</p>
-              <p className="text-[10px] text-white/50 font-medium">Version 1.1</p>
+              <p className="text-[10px] text-white/50 font-medium">Version 1.2.0</p>
             </div>
           </div>
         </div>

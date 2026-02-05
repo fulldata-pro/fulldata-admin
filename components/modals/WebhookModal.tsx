@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { toast } from 'react-toastify'
 import { ServicesType, ServiceLabels, ServiceType } from '@/lib/constants'
 
@@ -170,12 +171,9 @@ export function WebhookModal({
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black bg-opacity-50" onClick={handleClose}></div>
-
-        <div className="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={handleClose}>
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
           <form onSubmit={handleSubmit}>
             {/* Header */}
             <div className="px-8 py-6 border-b border-gray-100">
@@ -394,7 +392,7 @@ export function WebhookModal({
             </div>
           </form>
         </div>
-      </div>
-    </div>
+    </div>,
+    document.body
   )
 }
