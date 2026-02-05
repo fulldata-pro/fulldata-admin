@@ -10,6 +10,8 @@ export interface RequestListOptions {
   type?: string
   accountId?: string
   countryCode?: string
+  dateFrom?: string
+  dateTo?: string
 }
 
 class RequestRepository extends BaseRepository<IRequest> {
@@ -18,9 +20,7 @@ class RequestRepository extends BaseRepository<IRequest> {
   }
 
   private buildSearchQuery(options: RequestListOptions): FilterQuery<IRequest> {
-    const query: FilterQuery<IRequest> = {
-      deletedAt: { $exists: false },
-    }
+    const query: FilterQuery<IRequest> = {}
 
     if (options.search) {
       const searchRegex = new RegExp(options.search, 'i')
@@ -49,6 +49,20 @@ class RequestRepository extends BaseRepository<IRequest> {
       query.countryCode = options.countryCode
     }
 
+    // Date filters
+    if (options.dateFrom || options.dateTo) {
+      query.createdAt = {}
+      if (options.dateFrom) {
+        query.createdAt.$gte = new Date(options.dateFrom)
+      }
+      if (options.dateTo) {
+        // Add one day to include the entire end date
+        const endDate = new Date(options.dateTo)
+        endDate.setDate(endDate.getDate() + 1)
+        query.createdAt.$lt = endDate
+      }
+    }
+
     return query
   }
 
@@ -64,6 +78,7 @@ class RequestRepository extends BaseRepository<IRequest> {
         { path: 'accountId', select: 'uid email name billing.name' },
         { path: 'userId', select: 'uid firstName lastName email' },
       ],
+      includeDeleted: true, // Admin needs to see all reports for billing purposes
     })
   }
 

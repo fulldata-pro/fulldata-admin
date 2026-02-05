@@ -151,7 +151,7 @@ export function ProvidersTab({ accountId, onProvidersUpdate }: ProvidersTabProps
         </i>
         <h3 className="text-lg font-semibold text-gray-700 mb-2">Sin proveedores configurados</h3>
         <p className="text-gray-500">
-          No hay proveedores de datos disponibles. Contacta al administrador del sistema.
+          No hay proveedores de datos disponibles.
         </p>
       </div>
     )

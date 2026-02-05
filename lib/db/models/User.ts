@@ -18,7 +18,9 @@ export interface IUser extends Document {
   provider?: AuthProviderType
   status: UserStatusType
   emailVerifiedAt?: Date
+  emailVerifiedBy?: Types.ObjectId
   phoneVerifiedAt?: Date
+  phoneVerifiedBy?: Types.ObjectId
   onboardingCreditUsedAt?: Date
   createdAt: Date
   updatedAt?: Date
@@ -85,7 +87,17 @@ const UserSchema = new Schema<IUser>(
       default: UserStatus.ACTIVE,
     },
     emailVerifiedAt: Date,
+    emailVerifiedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+      default: null,
+    },
     phoneVerifiedAt: Date,
+    phoneVerifiedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Admin',
+      default: null,
+    },
     onboardingCreditUsedAt: {
       type: Date,
       default: null,

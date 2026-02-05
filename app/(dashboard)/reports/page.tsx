@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
+import * as XLSX from 'xlsx'
 import { RequestStatus, ServiceLabels, ServicesType, RequestSource, RequestSourceLabels, RequestSourceType } from '@/lib/constants'
-import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination, type ExportConfig } from '@/components/ui/DataTable'
+import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
 import { formatDateTime, getRelativeTime } from '@/lib/utils/dateUtils'
 
 interface Report {
@@ -32,6 +33,7 @@ interface Report {
     email: string
   }
   createdAt: string
+  deletedAt?: string | null
 }
 
 const DEFAULT_PAGE_SIZE = 10
@@ -73,6 +75,8 @@ export default function ReportsPage() {
   const [type, setType] = useState(searchParams?.get('type') || '')
   const [pageSize, setPageSize] = useState(parseInt(searchParams?.get('limit') || String(DEFAULT_PAGE_SIZE)))
   const [selectedReports, setSelectedReports] = useState<string[]>([])
+  const [allPagesSelected, setAllPagesSelected] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const fetchReports = useCallback(async () => {
     setIsLoading(true)
@@ -171,11 +175,28 @@ export default function ReportsPage() {
     {
       key: 'status',
       header: 'Estado',
-      exportValue: (report) => statusLabels[report.status] || report.status,
+      exportValue: (report) => `${statusLabels[report.status] || report.status}${report.deletedAt ? ' (Eliminado)' : ''}`,
       render: (report) => (
-        <Badge variant={statusVariants[report.status] || 'gray'}>
-          {statusLabels[report.status] || report.status}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <Badge variant={statusVariants[report.status] || 'gray'}>
+            {statusLabels[report.status] || report.status}
+          </Badge>
+          {report.deletedAt && (
+            <div className="relative group">
+              <i className="ki-duotone ki-trash text-red-400 text-base cursor-help">
+                <span className="path1"></span>
+                <span className="path2"></span>
+                <span className="path3"></span>
+                <span className="path4"></span>
+                <span className="path5"></span>
+              </i>
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                Eliminado por el usuario
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+              </div>
+            </div>
+          )}
+        </div>
       )
     },
     {
@@ -250,10 +271,6 @@ export default function ReportsPage() {
     }
   ]
 
-  const exportConfig: ExportConfig = {
-    filename: 'reportes',
-  }
-
   const filters: FilterConfig[] = [
     {
       key: 'search',
@@ -308,6 +325,79 @@ export default function ReportsPage() {
     router.push(`/reports?${params}`)
   }
 
+  const handleSelectAllPages = () => {
+    setAllPagesSelected(true)
+  }
+
+  const handleClearSelection = () => {
+    setAllPagesSelected(false)
+    setSelectedReports([])
+  }
+
+  const handleExportExcel = async () => {
+    if (selectedReports.length === 0 && !allPagesSelected) return
+
+    setIsExporting(true)
+    try {
+      let dataToExport: Report[]
+
+      if (allPagesSelected) {
+        // Fetch all data from API
+        const params = new URLSearchParams()
+        params.set('limit', '10000') // Fetch all
+        if (search) params.set('search', search)
+        if (status) params.set('status', status)
+        if (type) params.set('type', type)
+
+        const response = await fetch(`/api/reports?${params}`)
+        if (!response.ok) {
+          throw new Error('Error al obtener datos')
+        }
+        const data = await response.json()
+        dataToExport = data.reports
+      } else {
+        dataToExport = reports.filter(r => selectedReports.includes(r.uid))
+      }
+
+      // Prepare data for Excel
+      const excelData = dataToExport.map(report => ({
+        'ID': report.id,
+        'Búsqueda': report.type === 'IDENTITY' && report.metadata?.fullName
+          ? report.metadata.fullName
+          : report.searchQuery || '-',
+        'Tipo': `${typeLabels[report.type] || report.type}${report.isBatch ? ' (Masiva)' : ''}`,
+        'Origen': report.source ? RequestSourceLabels[report.source] : '-',
+        'Estado': `${statusLabels[report.status] || report.status}${report.deletedAt ? ' (Eliminado)' : ''}`,
+        'Cuenta': report.account?.name || report.account?.email || '-',
+        'Usuario': report.user ? `${report.user.firstName} ${report.user.lastName}` : '-',
+        'Fecha': formatDateTime(report.createdAt),
+      }))
+
+      // Create workbook and worksheet
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.json_to_sheet(excelData)
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 8 },   // ID
+        { wch: 30 },  // Búsqueda
+        { wch: 18 },  // Tipo
+        { wch: 10 },  // Origen
+        { wch: 18 },  // Estado
+        { wch: 25 },  // Cuenta
+        { wch: 25 },  // Usuario
+        { wch: 20 },  // Fecha
+      ]
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Reportes')
+      XLSX.writeFile(wb, 'reportes.xlsx')
+    } catch (error) {
+      console.error('Error exporting:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <DataTable
       data={reports}
@@ -329,11 +419,15 @@ export default function ReportsPage() {
       selectable
       selectedItems={selectedReports}
       onSelectionChange={setSelectedReports}
+      allPagesSelected={allPagesSelected}
+      onSelectAllPages={handleSelectAllPages}
+      onClearSelection={handleClearSelection}
       actions={actions}
       title="Reportes"
       subtitle="Listado de reportes generados"
       emptyMessage="No se encontraron reportes"
-      exportConfig={exportConfig}
+      onExport={handleExportExcel}
+      isExporting={isExporting}
     />
   )
 }

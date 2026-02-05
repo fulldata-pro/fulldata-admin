@@ -193,7 +193,7 @@ class ReceiptRepository extends BaseRepository<IReceipt> {
     const defaultPopulate: PopulateOptions[] = [
       {
         path: 'accountId',
-        select: 'id uid email billing avatar',
+        select: 'id uid email name billing avatar',
       },
       {
         path: 'invoiceId',

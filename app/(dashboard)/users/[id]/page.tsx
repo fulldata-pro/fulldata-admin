@@ -1,17 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { toast } from 'react-toastify'
 import { formatDate, formatDateTime } from '@/lib/utils/dateUtils'
+import { VerifyContactModal } from '@/components/modals/VerifyContactModal'
+import { ROUTES, AccountStatusLabels, AccountUserRoleLabels, AccountStatusType, AccountInvitationRoleType } from '@/lib/constants'
 
 interface UserAccount {
   _id: string
+  id: number
   uid: string
   name: string
   status: string
   role: string
+}
+
+interface AdminRef {
+  _id: string
+  name: string
+  email: string
 }
 
 interface User {
@@ -26,7 +35,9 @@ interface User {
   avatar?: string
   authMethod: 'LOCAL' | 'GOOGLE'
   emailVerifiedAt?: string
+  emailVerifiedBy?: AdminRef
   phoneVerifiedAt?: string
+  phoneVerifiedBy?: AdminRef
   onboardingCreditUsedAt?: string
   createdAt: string
   updatedAt: string
@@ -39,6 +50,12 @@ export default function UserDetailPage() {
   const id = params?.id as string
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [showActionsDropdown, setShowActionsDropdown] = useState(false)
+  const actionsDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Modal states
+  const [showVerifyEmailModal, setShowVerifyEmailModal] = useState(false)
+  const [showVerifyPhoneModal, setShowVerifyPhoneModal] = useState(false)
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -49,7 +66,7 @@ export default function UserDetailPage() {
           setUser(data.user)
         } else if (response.status === 404) {
           toast.error('Usuario no encontrado')
-          router.push('/users')
+          router.push(ROUTES.USERS)
         }
       } catch {
         toast.error('Error al cargar usuario')
@@ -62,6 +79,58 @@ export default function UserDetailPage() {
       fetchUser()
     }
   }, [id, router])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (actionsDropdownRef.current && !actionsDropdownRef.current.contains(event.target as Node)) {
+        setShowActionsDropdown(false)
+      }
+    }
+
+    if (showActionsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showActionsDropdown])
+
+  const handleVerify = async (type: 'email' | 'phone', value: string, phoneCountryCode?: string) => {
+    if (!user) return
+
+    const action = type === 'email' ? 'verify_email' : 'verify_phone'
+
+    const response = await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, value, phoneCountryCode }),
+    })
+    const data = await response.json()
+
+    if (response.ok) {
+      toast.success(type === 'email' ? 'Email verificado correctamente' : 'Telefono verificado correctamente')
+      if (type === 'email') {
+        setUser({
+          ...user,
+          email: data.user.email,
+          emailVerifiedAt: data.user.emailVerifiedAt,
+          emailVerifiedBy: data.user.emailVerifiedBy
+        })
+      } else {
+        setUser({
+          ...user,
+          phone: data.user.phone,
+          phoneCountryCode: data.user.phoneCountryCode,
+          phoneVerifiedAt: data.user.phoneVerifiedAt,
+          phoneVerifiedBy: data.user.phoneVerifiedBy
+        })
+      }
+    } else {
+      throw new Error(data.error || `Error al verificar ${type}`)
+    }
+  }
 
   const handleDelete = async () => {
     if (!user) return
@@ -82,7 +151,7 @@ export default function UserDetailPage() {
 
       if (response.ok) {
         toast.success('Usuario eliminado correctamente')
-        router.push('/users')
+        router.push(ROUTES.USERS)
       } else {
         toast.error(data.message || data.error || 'Error al eliminar usuario')
       }
@@ -122,7 +191,7 @@ export default function UserDetailPage() {
     <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link href="/users" className="hover:text-primary transition-colors">
+        <Link href={ROUTES.USERS} className="hover:text-primary transition-colors">
           Usuarios
         </Link>
         <i className="ki-duotone ki-right text-xs">
@@ -165,27 +234,67 @@ export default function UserDetailPage() {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Actions Dropdown */}
             <div className="flex items-center gap-3">
-              <button
-                onClick={handleDelete}
-                disabled={isOwnerOfAnyAccount}
-                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${
-                  isOwnerOfAnyAccount
-                    ? 'bg-gray-500/50 text-gray-300 cursor-not-allowed'
-                    : 'bg-red-500 text-white hover:bg-red-600'
-                }`}
-                title={isOwnerOfAnyAccount ? 'No se puede eliminar porque es dueño de una o mas cuentas' : 'Eliminar usuario'}
-              >
-                <i className="ki-duotone ki-trash text-lg">
-                  <span className="path1"></span>
-                  <span className="path2"></span>
-                  <span className="path3"></span>
-                  <span className="path4"></span>
-                  <span className="path5"></span>
-                </i>
-                Eliminar
-              </button>
+              <div className="relative" ref={actionsDropdownRef}>
+                <button
+                  onClick={() => setShowActionsDropdown(!showActionsDropdown)}
+                  className="btn btn-sm bg-primary text-white hover:bg-primary-dark"
+                >
+                  Acciones
+                  <i className="ki-duotone ki-down ms-2"></i>
+                </button>
+                {showActionsDropdown && (
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-50">
+                    <button
+                      onClick={() => {
+                        setShowActionsDropdown(false)
+                        setShowVerifyEmailModal(true)
+                      }}
+                      disabled={!!user.emailVerifiedAt}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${user.emailVerifiedAt
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      <i className="ki-duotone ki-sms">
+                        <span className="path1"></span>
+                        <span className="path2"></span>
+                      </i>
+                      <span>Verificar Email</span>
+                      {user.emailVerifiedAt && (
+                        <i className="ki-duotone ki-check-circle text-green-500 ml-auto">
+                          <span className="path1"></span>
+                          <span className="path2"></span>
+                        </i>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowActionsDropdown(false)
+                        setShowVerifyPhoneModal(true)
+                      }}
+                      disabled={!!user.phoneVerifiedAt}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${user.phoneVerifiedAt
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      <i className="ki-duotone ki-phone">
+                        <span className="path1"></span>
+                        <span className="path2"></span>
+                      </i>
+                      <span>Verificar Telefono</span>
+                      {user.phoneVerifiedAt && (
+                        <i className="ki-duotone ki-check-circle text-green-500 ml-auto">
+                          <span className="path1"></span>
+                          <span className="path2"></span>
+                        </i>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -259,15 +368,14 @@ export default function UserDetailPage() {
                 Metodo de Autenticacion
               </dt>
               <dd>
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
-                  user.authMethod === 'GOOGLE' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-                }`}>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${user.authMethod === 'GOOGLE' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
+                  }`}>
                   {user.authMethod === 'GOOGLE' && (
                     <svg className="w-4 h-4" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                     </svg>
                   )}
                   {user.authMethod === 'GOOGLE' ? 'Google' : 'Email'}
@@ -335,6 +443,11 @@ export default function UserDetailPage() {
                       Verificado
                     </span>
                     <p className="text-xs text-gray-500 mt-1">{formatDateTime(user.emailVerifiedAt)}</p>
+                    {user.emailVerifiedBy && (
+                      <p className="text-xs text-blue-600 mt-0.5">
+                        por {user.emailVerifiedBy.name}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700 text-sm font-medium">
@@ -375,6 +488,11 @@ export default function UserDetailPage() {
                       Verificado
                     </span>
                     <p className="text-xs text-gray-500 mt-1">{formatDateTime(user.phoneVerifiedAt)}</p>
+                    {user.phoneVerifiedBy && (
+                      <p className="text-xs text-blue-600 mt-0.5">
+                        por {user.phoneVerifiedBy.name}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700 text-sm font-medium">
@@ -471,33 +589,23 @@ export default function UserDetailPage() {
                         </div>
                         <div>
                           <p className="font-medium text-secondary">{account.name}</p>
-                          <p className="text-xs text-gray-500 font-mono">{account.uid}</p>
+                          <p className="text-xs text-gray-500 font-mono">#{account.id}</p>
                         </div>
                       </div>
                     </td>
                     <td className="table-cell">
                       <span className={`badge ${getStatusBadge(account.status)}`}>
-                        {account.status}
+                        {AccountStatusLabels[account.status as AccountStatusType] || account.status}
                       </span>
                     </td>
                     <td className="table-cell">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${
-                        account.role === 'OWNER'
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        {account.role === 'OWNER' && (
-                          <i className="ki-duotone ki-crown text-sm">
-                            <span className="path1"></span>
-                            <span className="path2"></span>
-                          </i>
-                        )}
-                        {account.role}
+                      <span className={`badge ${account.role === 'OWNER' ? 'badge-purple' : 'badge-gray'}`}>
+                        {AccountUserRoleLabels[account.role as AccountInvitationRoleType] || account.role}
                       </span>
                     </td>
                     <td className="table-cell">
                       <Link
-                        href={`/accounts/${account._id}`}
+                        href={ROUTES.ACCOUNT_DETAIL(account._id)}
                         className="inline-flex items-center gap-1 text-primary hover:text-primary-dark font-medium text-sm transition-colors"
                       >
                         Ver cuenta
@@ -526,41 +634,103 @@ export default function UserDetailPage() {
         )}
       </div>
 
-      {/* Warning if user is owner */}
-      {isOwnerOfAnyAccount && (
-        <div className="card border-l-4 border-l-yellow-500 bg-yellow-50">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center flex-shrink-0">
-              <i className="ki-duotone ki-information-2 text-xl text-yellow-600">
+      {/* Danger Zone */}
+      <div className="card border border-red-200 bg-red-50/50">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
+            <i className="ki-duotone ki-shield-cross text-xl text-red-600">
+              <span className="path1"></span>
+              <span className="path2"></span>
+            </i>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-red-700">Zona de Peligro</h3>
+            <p className="text-sm text-red-600/80">Acciones irreversibles</p>
+          </div>
+        </div>
+
+        {/* Warning if user is owner */}
+        {isOwnerOfAnyAccount && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-xl">
+            <div className="flex items-start gap-3">
+              <i className="ki-duotone ki-information-2 text-xl text-yellow-600 mt-0.5">
                 <span className="path1"></span>
                 <span className="path2"></span>
                 <span className="path3"></span>
               </i>
-            </div>
-            <div>
-              <h4 className="font-semibold text-secondary mb-1">Usuario propietario</h4>
-              <p className="text-sm text-gray-600">
-                Este usuario es propietario (OWNER) de una o mas cuentas. No se puede eliminar hasta que transfiera la propiedad de todas sus cuentas a otro usuario.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {user.accounts.filter(a => a.role === 'OWNER').map(acc => (
-                  <Link
-                    key={acc._id}
-                    href={`/accounts/${acc._id}`}
-                    className="inline-flex items-center gap-1 px-3 py-1 bg-white rounded-lg border border-yellow-200 text-sm font-medium text-yellow-700 hover:bg-yellow-50 transition-colors"
-                  >
-                    {acc.name}
-                    <i className="ki-duotone ki-arrow-right text-xs">
-                      <span className="path1"></span>
-                      <span className="path2"></span>
-                    </i>
-                  </Link>
-                ))}
+              <div>
+                <h4 className="font-semibold text-secondary mb-1">Usuario propietario</h4>
+                <p className="text-sm text-gray-600">
+                  Este usuario es PROPIETARIO de una o mas cuentas. No se puede eliminar hasta que transfiera la propiedad de todas sus cuentas a otro usuario.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {user.accounts.filter(a => a.role === 'OWNER').map(acc => (
+                    <Link
+                      key={acc._id}
+                      href={ROUTES.ACCOUNT_DETAIL(acc._id)}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-white rounded-lg border border-yellow-200 text-sm font-medium text-yellow-700 hover:bg-yellow-50 transition-colors"
+                    >
+                      {acc.name}
+                      <i className="ki-duotone ki-arrow-right text-xs">
+                        <span className="path1"></span>
+                        <span className="path2"></span>
+                      </i>
+                    </Link>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
+        )}
+
+        <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-red-100">
+          <div>
+            <p className="font-medium text-secondary">Eliminar usuario</p>
+            <p className="text-sm text-gray-500">
+              {isOwnerOfAnyAccount
+                ? 'No disponible mientras sea propietario de cuentas'
+                : 'Se eliminara el usuario y se lo quitara de todas las cuentas asociadas'}
+            </p>
+          </div>
+          <button
+            onClick={handleDelete}
+            disabled={isOwnerOfAnyAccount}
+            className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors ${isOwnerOfAnyAccount
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-red-500 text-white hover:bg-red-600'
+              }`}
+          >
+            <i className="ki-duotone ki-trash text-lg">
+              <span className="path1"></span>
+              <span className="path2"></span>
+              <span className="path3"></span>
+              <span className="path4"></span>
+              <span className="path5"></span>
+            </i>
+            Eliminar Usuario
+          </button>
         </div>
-      )}
+      </div>
+
+      {/* Modals */}
+      <VerifyContactModal
+        isOpen={showVerifyEmailModal}
+        onClose={() => setShowVerifyEmailModal(false)}
+        onConfirm={handleVerify}
+        type="email"
+        currentValue={user.email}
+        userName={`${user.firstName} ${user.lastName}`}
+      />
+
+      <VerifyContactModal
+        isOpen={showVerifyPhoneModal}
+        onClose={() => setShowVerifyPhoneModal(false)}
+        onConfirm={handleVerify}
+        type="phone"
+        currentValue={user.phone || ''}
+        currentPhoneCountryCode={user.phoneCountryCode}
+        userName={`${user.firstName} ${user.lastName}`}
+      />
     </div>
   )
 }

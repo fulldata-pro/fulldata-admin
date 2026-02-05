@@ -95,86 +95,66 @@ export function AccountTabs({
   }
 
   const tabs = [
-    { id: 'overview', label: 'Información', icon: 'ki-information-circle', count: null, color: 'pink' },
-    { id: 'users', label: 'Usuarios', icon: 'ki-people', count: account?.users?.length || 0, color: 'indigo' },
-    { id: 'balance', label: 'Balance', icon: 'ki-wallet', count: null, color: 'emerald' },
-    { id: 'tokens', label: 'Tokens', icon: 'ki-tag', count: null, color: 'blue' },
-    { id: 'reports', label: 'Reportes', icon: 'ki-chart-line', count: null, color: 'purple' },
-    { id: 'apikeys', label: 'API Keys', icon: 'ki-key', count: accountApis?.length || 0, color: 'orange' },
-    { id: 'webhooks', label: 'Webhooks', icon: 'ki-notification', count: webhooks?.length || 0, color: 'red' },
-    { id: 'providers', label: 'Proveedores', icon: 'ki-setting-2', count: null, color: 'cyan' }
+    { id: 'overview', label: 'Información', icon: 'ki-home-2', count: null },
+    { id: 'users', label: 'Usuarios', icon: 'ki-people', count: account?.users?.length || 0 },
+    { id: 'balance', label: 'Balance', icon: 'ki-wallet', count: null },
+    { id: 'tokens', label: 'Tokens', icon: 'ki-tag', count: null },
+    { id: 'reports', label: 'Reportes', icon: 'ki-chart-line', count: null },
+    { id: 'apikeys', label: 'API Keys', icon: 'ki-key', count: accountApis?.length || 0 },
+    { id: 'webhooks', label: 'Webhooks', icon: 'ki-notification', count: webhooks?.length || 0 },
+    { id: 'providers', label: 'Proveedores', icon: 'ki-setting-2', count: null }
   ]
 
-  const getTabColor = (color: string, isActive: boolean) => {
+  const getTabClasses = (isActive: boolean) => {
     if (isActive) {
-      switch (color) {
-        case 'pink': return 'bg-pink-50 text-pink-600 border-pink-200'
-        case 'indigo': return 'bg-indigo-50 text-indigo-600 border-indigo-200'
-        case 'emerald': return 'bg-emerald-50 text-emerald-600 border-emerald-200'
-        case 'blue': return 'bg-blue-50 text-blue-600 border-blue-200'
-        case 'purple': return 'bg-purple-50 text-purple-600 border-purple-200'
-        case 'orange': return 'bg-orange-50 text-orange-600 border-orange-200'
-        case 'red': return 'bg-red-50 text-red-600 border-red-200'
-        case 'cyan': return 'bg-cyan-50 text-cyan-600 border-cyan-200'
-        case 'gray': return 'bg-gray-50 text-gray-600 border-gray-200'
-        default: return 'bg-gray-50 text-gray-600 border-gray-200'
-      }
+      return 'bg-white text-primary shadow-md border-gray-100 scale-[1.02]'
     }
-    return 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+    return 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-white/60 hover:shadow-sm'
   }
 
-  const getIconColor = (color: string, isActive: boolean) => {
+  const getIconClasses = (isActive: boolean) => {
     if (isActive) {
-      switch (color) {
-        case 'pink': return 'text-pink-500'
-        case 'indigo': return 'text-indigo-500'
-        case 'emerald': return 'text-emerald-500'
-        case 'blue': return 'text-blue-500'
-        case 'purple': return 'text-purple-500'
-        case 'orange': return 'text-orange-500'
-        case 'red': return 'text-red-500'
-        case 'cyan': return 'text-cyan-500'
-        case 'gray': return 'text-gray-500'
-        default: return 'text-gray-500'
-      }
+      return 'text-primary'
     }
-    return 'text-gray-400'
+    return 'text-gray-400 group-hover:text-gray-600'
   }
 
   return (
     <div>
       {/* Tab Navigation */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => handleTabClick(tab.id)}
-            className={`
-              flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-medium text-sm transition-all whitespace-nowrap border
-              ${getTabColor(tab.color, activeTab === tab.id)}
-            `}
-          >
-            <i className={`ki-duotone ${tab.icon} text-lg ${getIconColor(tab.color, activeTab === tab.id)}`}>
-              <span className="path1"></span>
-              <span className="path2"></span>
-              <span className="path3"></span>
-              <span className="path4"></span>
-              <span className="path5"></span>
-            </i>
-            <span>{tab.label}</span>
-            {tab.count !== null && tab.count > 0 && (
-              <span className={`
-                px-2 py-0.5 rounded-full text-xs font-bold
-                ${activeTab === tab.id
-                  ? 'bg-white/80 text-gray-800 shadow-sm'
-                  : 'bg-gray-200 text-gray-600'
-                }
-              `}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="bg-gray-100/80 backdrop-blur-sm rounded-2xl p-1.5 mb-6 overflow-x-auto">
+        <div className="flex items-center gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => handleTabClick(tab.id)}
+              className={`
+                group flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 whitespace-nowrap border
+                ${getTabClasses(activeTab === tab.id)}
+              `}
+            >
+              <i className={`ki-duotone ${tab.icon} text-base transition-colors duration-200 ${getIconClasses(activeTab === tab.id)}`}>
+                <span className="path1"></span>
+                <span className="path2"></span>
+                <span className="path3"></span>
+                <span className="path4"></span>
+                <span className="path5"></span>
+              </i>
+              <span>{tab.label}</span>
+              {tab.count !== null && tab.count > 0 && (
+                <span className={`
+                  min-w-[20px] h-5 px-1.5 rounded-full text-xs font-semibold flex items-center justify-center transition-colors duration-200
+                  ${activeTab === tab.id
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-300/80 text-gray-600 group-hover:bg-gray-300'
+                  }
+                `}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -184,7 +164,7 @@ export function AccountTabs({
             {/* Información General */}
             <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
               <div className="flex items-center gap-2 mb-4">
-                <i className="ki-duotone ki-information-circle text-pink-500 text-xl">
+                <i className="ki-duotone ki-information-circle text-primary text-xl">
                   <span className="path1"></span>
                   <span className="path2"></span>
                   <span className="path3"></span>
@@ -239,7 +219,7 @@ export function AccountTabs({
             <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <i className="ki-duotone ki-bill text-emerald-500 text-xl">
+                  <i className="ki-duotone ki-bill text-primary text-xl">
                     <span className="path1"></span>
                     <span className="path2"></span>
                   </i>
@@ -332,7 +312,7 @@ export function AccountTabs({
             {account?.serviceConfig && (
               <div className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-2 mb-4">
-                  <i className="ki-duotone ki-setting-2 text-purple-500 text-xl">
+                  <i className="ki-duotone ki-setting-2 text-primary text-xl">
                     <span className="path1"></span>
                     <span className="path2"></span>
                   </i>

@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || ''
     const type = searchParams.get('type') || ''
     const accountId = searchParams.get('accountId') || ''
+    const dateFrom = searchParams.get('dateFrom') || ''
+    const dateTo = searchParams.get('dateTo') || ''
 
     const result = await requestRepository.list({
       page,
@@ -27,6 +29,8 @@ export async function GET(request: NextRequest) {
       status: (status as RequestStatusType) || undefined,
       type: type || undefined,
       accountId: accountId || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
     })
 
     // Transform data for frontend (safe fields only)
@@ -66,6 +70,7 @@ export async function GET(request: NextRequest) {
         user,
         metadata,
         createdAt: report.createdAt,
+        deletedAt: report.deletedAt || null,
       }
     })
 

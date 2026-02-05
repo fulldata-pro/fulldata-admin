@@ -18,6 +18,7 @@ export interface PaginateOptions {
   sort?: Record<string, 1 | -1>
   populate?: PopulateOptions | PopulateOptions[]
   select?: string
+  includeDeleted?: boolean
 }
 
 export abstract class BaseRepository<T extends Document> {
@@ -132,12 +133,16 @@ export abstract class BaseRepository<T extends Document> {
       sort = { createdAt: -1 },
       populate,
       select,
+      includeDeleted = false,
     } = options
 
     const skip = (page - 1) * limit
 
     let query = this.model.find(filter).sort(sort).skip(skip).limit(limit)
 
+    if (includeDeleted) {
+      query = query.setOptions({ includeDeleted: true })
+    }
     if (populate) {
       query = query.populate(populate)
     }
@@ -145,9 +150,14 @@ export abstract class BaseRepository<T extends Document> {
       query = query.select(select)
     }
 
+    let countQuery = this.model.countDocuments(filter)
+    if (includeDeleted) {
+      countQuery = countQuery.setOptions({ includeDeleted: true })
+    }
+
     const [data, total] = await Promise.all([
       query.lean().exec() as Promise<T[]>,
-      this.model.countDocuments(filter).exec(),
+      countQuery.exec(),
     ])
 
     return {
