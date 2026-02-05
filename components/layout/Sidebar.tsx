@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useEffect, useCallback, useRef } from 'react'
 
 interface NavItem {
   label: string
@@ -16,11 +15,6 @@ interface NavSection {
   title: string
   items: NavItem[]
 }
-
-const MIN_WIDTH = 200
-const MAX_WIDTH = 400
-const DEFAULT_WIDTH = 256
-const STORAGE_KEY = 'sidebar-width'
 
 const navigation: NavSection[] = [
   {
@@ -57,54 +51,16 @@ const navigation: NavSection[] = [
   },
 ]
 
-interface SidebarProps {
-  width: number
-  onWidthChange: (width: number) => void
-}
-
-export default function Sidebar({ width, onWidthChange }: SidebarProps) {
+export default function Sidebar() {
   const pathname = usePathname()
-  const isResizing = useRef(false)
 
   const isActive = (href: string) => {
     return pathname === href
   }
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    isResizing.current = true
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-  }, [])
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing.current) return
-      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX))
-      onWidthChange(newWidth)
-    }
-
-    const handleMouseUp = () => {
-      if (isResizing.current) {
-        isResizing.current = false
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-      }
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [onWidthChange])
-
   return (
     <aside
-      className="fixed left-0 top-0 z-40 h-screen sidebar-gradient overflow-y-auto scrollbar-hide"
-      style={{ width: `${width}px` }}
+      className="fixed left-0 top-0 z-40 h-screen w-64 sidebar-gradient overflow-y-auto scrollbar-hide"
     >
       <div className="flex flex-col h-full">
         {/* Logo */}
@@ -175,13 +131,6 @@ export default function Sidebar({ width, onWidthChange }: SidebarProps) {
         </div>
       </div>
 
-      {/* Resize handle */}
-      <div
-        className="sidebar-resize-handle"
-        onMouseDown={handleMouseDown}
-      >
-        <div className="sidebar-resize-indicator" />
-      </div>
     </aside>
   )
 }
