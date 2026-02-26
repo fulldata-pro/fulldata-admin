@@ -10,6 +10,9 @@
     "seed:admin": "npx tsx scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@amcharts/amcharts5": "^5.15.6",
+    "@amcharts/amcharts5-geodata": "^5.1.5",
+    "@react-google-maps/api": "^2.20.8",
     "@reduxjs/toolkit": "^2.5.1",
     "@tailwindcss/typography": "^0.5.15",
     "bcryptjs": "^2.4.3",

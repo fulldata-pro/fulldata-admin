@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminRequest } from '@/lib/auth'
 import { accountRepository, configRepository } from '@/lib/db/repositories'
+import { PROVIDER_CONFIG, maskSensitiveValue } from '@/lib/constants'
 
 export const dynamic = 'force-dynamic'
 
 interface ProviderUpdate {
   code: string
   isEnabled: boolean
+  config?: Record<string, string>
 }
 
 /**
@@ -39,13 +41,31 @@ export async function GET(
     // Merge available providers with account settings
     // Check if provider exists as a key in serviceConfig and has isEnabled property
     const mergedProviders = availableProviders.map(provider => {
-      const providerConfig = serviceConfig[provider.code]
+      const providerConfig = serviceConfig[provider.code] || {}
       // If provider is not configured in account, default to disabled
       const isEnabled = providerConfig?.isEnabled === true
+
+      // Build config object with masked sensitive values
+      const providerMeta = PROVIDER_CONFIG[provider.code]
+      const config: Record<string, string> = {}
+
+      if (providerMeta?.fields) {
+        for (const field of providerMeta.fields) {
+          const value = providerConfig[field.key]
+          if (field.type === 'password') {
+            // Mask sensitive values but indicate if configured
+            config[field.key] = value ? maskSensitiveValue(value) : ''
+            config[`${field.key}_configured`] = value ? 'true' : 'false'
+          } else {
+            config[field.key] = value || ''
+          }
+        }
+      }
 
       return {
         code: provider.code,
         isEnabled,
+        config,
       }
     })
 
@@ -105,19 +125,50 @@ export async function PATCH(
     }
 
     // Build updated serviceConfig with each provider as a direct key
-    const updatedServiceConfig = { ...account.serviceConfig }
-
-    for (const provider of providers) {
-      // Preserve existing provider config if any, just update isEnabled
-      updatedServiceConfig[provider.code] = {
-        ...updatedServiceConfig[provider.code],
-        isEnabled: provider.isEnabled,
-      }
+    // Convert Mongoose subdocument to plain object
+    const currentServiceConfig = account.serviceConfig?.toObject?.() ?? { ...account.serviceConfig }
+    const updatedServiceConfig: Record<string, unknown> = {
+      webhookEnabled: currentServiceConfig.webhookEnabled ?? false,
+      apiEnabled: currentServiceConfig.apiEnabled ?? false,
     }
 
-    await accountRepository.update(id, {
-      serviceConfig: updatedServiceConfig,
-      updatedBy: admin?._id,
+    for (const provider of providers) {
+      // Get existing config as plain object
+      const existingRaw = currentServiceConfig[provider.code]
+      const existingConfig = existingRaw?.toObject?.() ?? existingRaw ?? {}
+      const providerMeta = PROVIDER_CONFIG[provider.code]
+
+      // Start with existing config
+      const newConfig: Record<string, unknown> = {
+        ...existingConfig,
+        isEnabled: provider.isEnabled,
+      }
+
+      // Update additional config fields if provided
+      if (provider.config && providerMeta?.fields) {
+        for (const field of providerMeta.fields) {
+          const newValue = provider.config[field.key]
+          // Only update if a new value is provided (not empty string)
+          // This allows keeping existing values when user doesn't change them
+          if (newValue !== undefined && newValue !== '') {
+            newConfig[field.key] = newValue
+          }
+          // If empty string is passed, remove the field (reset to default)
+          else if (newValue === '') {
+            delete newConfig[field.key]
+          }
+        }
+      }
+
+      updatedServiceConfig[provider.code] = newConfig
+    }
+
+    await accountRepository.update(account._id, {
+      $set: {
+        serviceConfig: updatedServiceConfig,
+        updatedBy: admin?._id,
+        updatedAt: new Date(),
+      },
     })
 
     return NextResponse.json({

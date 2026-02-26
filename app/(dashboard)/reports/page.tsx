@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'react-toastify'
 import * as XLSX from 'xlsx'
-import { RequestStatus, ServiceLabels, ServicesType, RequestSource, RequestSourceLabels, RequestSourceType } from '@/lib/constants'
+import { RequestStatus, ServiceLabels, ServicesType, RequestSource, RequestSourceLabels, RequestSourceType, ROUTES } from '@/lib/constants'
 import { DataTable, Badge, ActionIcon, type Column, type FilterConfig, type ActionMenuItem, type Pagination } from '@/components/ui/DataTable'
 import { formatDateTime, getRelativeTime } from '@/lib/utils/dateUtils'
 
@@ -250,9 +250,10 @@ export default function ReportsPage() {
     {
       label: 'Ver reporte',
       icon: <ActionIcon icon="eye" className="text-gray-500" />,
-      onClick: () => {
-        // TODO: Implementar ver reporte
-      }
+      onClick: (report) => {
+        router.push(ROUTES.REPORT_DETAIL(report.uid))
+      },
+      show: (report) => report.status === 'COMPLETED' || report.status === 'PARTIAL'
     },
     {
       label: 'Historial de webhooks',

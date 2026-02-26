@@ -109,6 +109,17 @@ export { MovementType, MovementStatus, MovementTypeLabel, MovementStatusLabel, i
 // Re-export routes
 export { ROUTES } from './routes.constants'
 
+// Re-export provider constants
+export {
+  PROVIDER_CONFIG,
+  PROVIDER_CODES,
+  getProviderName,
+  providerRequiresConfig,
+  getProviderFields,
+  maskSensitiveValue,
+} from './providerConstants'
+export type { ProviderConfig, ProviderField } from './providerConstants'
+
 /** @deprecated Use MovementType enum instead */
 export const MovementTypes = {
   EMAIL_VERIFICATION: 'EMAIL_VERIFICATION',
