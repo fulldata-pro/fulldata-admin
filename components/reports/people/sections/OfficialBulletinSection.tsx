@@ -2,65 +2,7 @@
 
 import React from 'react'
 import { formatDate } from '@/lib/utils/dateUtils'
-
-interface BulletinItem {
-  rz: string
-  source: string
-  date?: number | { $numberLong: string }
-  report?: string
-}
-
-interface EmbargoItem {
-  jobNumber: string
-  date?: number | { $numberLong: string }
-  jobDate?: number | { $numberLong: string }
-  liftingDate?: number | { $numberLong: string }
-  cover: string
-  court: string
-  proceedings?: string
-  address?: string
-  phone?: string
-}
-
-interface ParticipationItem {
-  rz: string
-  charge: string
-  source: string
-  publishDate?: number | { $numberLong: string }
-  constitutionDate?: number | { $numberLong: string }
-  file: string
-  bulletinId: string
-}
-
-interface TrialActorItem {
-  defendant: string
-  rol: string
-  date?: number | { $numberLong: string }
-  province: string
-  court: string
-  object: string
-  proceedings?: string
-  text?: string
-}
-
-interface TrialDefendantItem {
-  actor: string
-  rol: string
-  date?: number | { $numberLong: string }
-  province: string
-  court: string
-  object: string
-  proceedings?: string
-  text?: string
-}
-
-interface OfficialBulletinData {
-  bulletin?: BulletinItem[]
-  embargoes?: EmbargoItem[]
-  participationSocietal?: ParticipationItem[]
-  trialsActor?: TrialActorItem[]
-  trialsDefendant?: TrialDefendantItem[]
-}
+import { OfficialBulletinData } from '@/lib/types/report.types'
 
 interface OfficialBulletinSectionProps {
   bulletinData: OfficialBulletinData

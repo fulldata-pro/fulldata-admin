@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { SummaryData, Score } from '@/lib/types/report.types'
+import { PeopleSummaryData, Score } from '@/lib/types/report.types'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import InfoTooltip from '@/components/reports/shared/InfoTooltip'
 import ScoreBellCurve from '@/components/reports/shared/ScoreBellCurve'
@@ -9,7 +9,7 @@ import { formatDate } from '@/lib/utils/dateUtils'
 import { formatCurrency, formatNumber } from '@/lib/utils/currencyUtils'
 
 interface PeopleSummaryProps {
-  summary: SummaryData | null
+  summary: PeopleSummaryData | null
   scoreHistory: Score[]
 }
 

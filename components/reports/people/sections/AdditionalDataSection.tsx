@@ -2,23 +2,12 @@
 
 import React from 'react'
 import { formatDate } from '@/lib/utils/dateUtils'
-
-interface NicDomains {
-  domain: string
-  status?: string
-}
-
-interface ReportingEntity {
-  status?: string
-  creationDate?: number | { $numberLong: string }
-  enabled?: boolean
-  entityType?: string
-}
+import { NicDomains, ReportingEntity, DuplicatedPerson } from '@/lib/types/report.types'
 
 interface AdditionalDataSectionProps {
   nicDomains?: NicDomains[]
   isDuplicated?: boolean
-  duplicatedList?: any[]
+  duplicatedList?: DuplicatedPerson[]
   isBanked?: boolean
   reportingEntity?: ReportingEntity
 }

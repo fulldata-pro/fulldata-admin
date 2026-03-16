@@ -2,37 +2,10 @@
 
 import React from 'react'
 import OwnerCard from './OwnerCard'
-
-interface PhoneData {
-  phoneNumber: string
-  operator?: string
-  location?: string
-  wsp?: boolean
-}
-
-interface OwnerData {
-  type: 'PERSON' | 'COMPANY'
-  taxId: number | string
-  firstName?: string
-  lastName?: string
-  rz?: string
-  percentage?: number
-  nationalId?: string
-  birthDate?: number
-  sex?: string
-  nationality?: string
-  constitutionDate?: number
-  employees?: number
-  address?: string
-  city?: string
-  province?: string
-  cp?: string
-  phones?: PhoneData[]
-  emails?: string[]
-}
+import { VehicleOwnerData } from '@/lib/types/report.types'
 
 interface OwnersSectionProps {
-  ownersData: OwnerData[]
+  ownersData: VehicleOwnerData[]
 }
 
 export default function OwnersSection({ ownersData }: OwnersSectionProps) {
@@ -53,7 +26,7 @@ export default function OwnersSection({ ownersData }: OwnersSectionProps) {
       </div>
 
       <div className={`grid grid-cols-1 ${ownersData.length > 1 ? 'lg:grid-cols-2' : ''} gap-6`}>
-        {ownersData.map((owner: OwnerData, index: number) => (
+        {ownersData.map((owner: VehicleOwnerData, index: number) => (
           <OwnerCard
             key={index}
             owner={owner}
