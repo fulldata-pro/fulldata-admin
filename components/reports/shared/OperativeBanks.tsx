@@ -101,7 +101,7 @@ export default function OperativeBanks({ banks, title = 'Bancos Operativos' }: O
                   {bank.amount && (
                     <div className="text-right">
                       <span className="text-emerald-700 text-xs font-medium block mb-1">Monto</span>
-                      <span className="text-gray-900 font-bold text-sm">{formatCurrency(bank.amount, 'ARS')}</span>
+                      <span className="text-gray-900 font-bold text-sm">{formatCurrency(Number(bank.amount), 'ARS')}</span>
                     </div>
                   )}
                   {bank.type && (

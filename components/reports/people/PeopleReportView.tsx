@@ -240,14 +240,14 @@ export default function PeopleReportView({
       )}
 
       {/* Tax Section */}
-      {peopleData.taxData && (
+      {peopleData.taxes && (
         <section id="impositiva" className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div className="px-8 py-6 border-b border-gray-100">
             <h2 className="text-2xl font-medium text-gray-900 mb-3">Informacion Impositiva</h2>
             <div className="h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 w-32 rounded-full"></div>
           </div>
           <div className="p-8">
-            <TaxSection taxData={peopleData.taxData} />
+            <TaxSection taxData={peopleData.taxes} />
           </div>
         </section>
       )}
@@ -266,7 +266,7 @@ export default function PeopleReportView({
       )}
 
       {/* Bonds Section */}
-      {(peopleData.bonds && (peopleData.bonds.main?.length > 0 || peopleData.bonds.others?.length > 0)) ||
+      {(peopleData.bonds && ((peopleData.bonds.main?.length ?? 0) > 0 || (peopleData.bonds.others?.length ?? 0) > 0)) ||
        (peopleData.corporateRelations && peopleData.corporateRelations.length > 0) ? (
         <section id="vinculos" className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div className="px-8 py-6 border-b border-gray-100">
@@ -274,7 +274,7 @@ export default function PeopleReportView({
             <div className="h-1 bg-gradient-to-r from-lime-500 via-green-500 to-emerald-500 w-32 rounded-full"></div>
           </div>
           <div className="p-8 space-y-12">
-            {peopleData.bonds && (peopleData.bonds.main?.length > 0 || peopleData.bonds.others?.length > 0) && (
+            {peopleData.bonds && ((peopleData.bonds.main?.length ?? 0) > 0 || (peopleData.bonds.others?.length ?? 0) > 0) && (
               <BondsSection bondsData={peopleData.bonds} />
             )}
             {peopleData.corporateRelations && peopleData.corporateRelations.length > 0 && (
@@ -305,11 +305,11 @@ export default function PeopleReportView({
 
       {/* Official Bulletin Section */}
       {peopleData.officialBulletin && (
-        peopleData.officialBulletin.publications?.length > 0 ||
-        peopleData.officialBulletin.embargoes?.length > 0 ||
-        peopleData.officialBulletin.corporateParticipation?.length > 0 ||
-        peopleData.officialBulletin.trialsAsPlaintiff?.length > 0 ||
-        peopleData.officialBulletin.trialsAsDefendant?.length > 0
+        (peopleData.officialBulletin.bulletin?.length ?? 0) > 0 ||
+        (peopleData.officialBulletin.embargoes?.length ?? 0) > 0 ||
+        (peopleData.officialBulletin.participationSocietal?.length ?? 0) > 0 ||
+        (peopleData.officialBulletin.trialsActor?.length ?? 0) > 0 ||
+        (peopleData.officialBulletin.trialsDefendant?.length ?? 0) > 0
       ) && (
         <section id="boletin" className="bg-white border border-gray-200 rounded-xl shadow-sm">
           <div className="px-8 py-6 border-b border-gray-100">
@@ -323,9 +323,9 @@ export default function PeopleReportView({
       )}
 
       {/* Additional Data Section */}
-      {(peopleData.nicDomains?.length > 0 ||
+      {((peopleData.nicDomains?.length ?? 0) > 0 ||
         peopleData.isDuplicated !== undefined ||
-        peopleData.duplicatedList?.length > 0 ||
+        (peopleData.duplicatedList?.length ?? 0) > 0 ||
         peopleData.isBanked !== undefined ||
         peopleData.reportingEntity) && (
         <section id="adicional" className="bg-white border border-gray-200 rounded-xl shadow-sm">

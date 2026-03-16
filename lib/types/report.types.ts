@@ -41,6 +41,13 @@ export interface PeopleData {
   nicDomains: NicDomains[]
   corporateRelations?: CorporateRelation[]
   reportingEntity?: ReportingEntity
+  isDuplicated?: boolean
+  duplicatedList?: DuplicatedPerson[]
+}
+
+export interface DuplicatedPerson {
+  taxId: string | number
+  name: string
 }
 
 export interface NicDomains {

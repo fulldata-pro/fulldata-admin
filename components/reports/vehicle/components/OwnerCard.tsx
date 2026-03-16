@@ -3,37 +3,10 @@
 import React from 'react'
 import InfoCard from './InfoCard'
 import DataField from './DataField'
-
-interface PhoneData {
-  phoneNumber: string
-  operator?: string
-  location?: string
-  wsp?: boolean
-}
-
-interface OwnerData {
-  type: 'PERSON' | 'COMPANY'
-  taxId: number | string
-  firstName?: string
-  lastName?: string
-  rz?: string
-  percentage?: number
-  nationalId?: string
-  birthDate?: number
-  sex?: string
-  nationality?: string
-  constitutionDate?: number
-  employees?: number
-  address?: string
-  city?: string
-  province?: string
-  cp?: string
-  phones?: PhoneData[]
-  emails?: string[]
-}
+import { VehicleOwnerData, VehiclePhoneData } from '@/lib/types/report.types'
 
 interface OwnerCardProps {
-  owner: OwnerData
+  owner: VehicleOwnerData
   index: number
   isHistorical?: boolean
 }
@@ -171,7 +144,7 @@ export default function OwnerCard({ owner, index, isHistorical = false }: OwnerC
                     </h3>
                     <div className="h-0.5 bg-gradient-to-r from-gray-500 via-gray-400 to-transparent w-16"></div>
                   </div>
-                  {owner.phones.map((phone: PhoneData, phoneIndex: number) => (
+                  {owner.phones.map((phone: VehiclePhoneData, phoneIndex: number) => (
                     <div key={phoneIndex} className="bg-gradient-to-r from-zinc-50/50 to-slate-50/40 border border-slate-200/30 rounded-xl p-4 space-y-2 hover:from-zinc-50/70 hover:to-slate-50/60 transition-all duration-200">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-slate-800">

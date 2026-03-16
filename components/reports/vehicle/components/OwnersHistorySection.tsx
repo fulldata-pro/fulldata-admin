@@ -1,16 +1,12 @@
 'use client'
 
 import React from 'react'
-
-enum ePersonType {
-  PERSON = 'PERSON',
-  COMPANY = 'COMPANY'
-}
+import { PersonType } from '@/lib/types/report.types'
 
 interface HistoricalOwner {
   taxId: string
   fullName: string
-  type: ePersonType
+  type: PersonType
 }
 
 interface OwnersHistorySectionProps {
@@ -44,11 +40,11 @@ export default function OwnersHistorySection({ ownersHistoryData }: OwnersHistor
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 border border-amber-400/20 flex-shrink-0 shadow-sm">
                   <i className={`ki-duotone text-lg text-white ${
-                    owner.type === ePersonType.PERSON ? 'ki-profile-user' : 'ki-office-bag'
+                    owner.type === PersonType.PERSON ? 'ki-profile-user' : 'ki-office-bag'
                   }`}>
                     <span className="path1"></span>
                     <span className="path2"></span>
-                    {owner.type === ePersonType.PERSON && (
+                    {owner.type === PersonType.PERSON && (
                       <>
                         <span className="path3"></span>
                         <span className="path4"></span>
@@ -71,12 +67,12 @@ export default function OwnersHistorySection({ ownersHistoryData }: OwnersHistor
                     {owner.fullName}
                   </h3>
                   <p className="text-sm text-slate-600 mb-3">
-                    {owner.type === ePersonType.PERSON ? 'Persona Fisica' : 'Persona Juridica'}
+                    {owner.type === PersonType.PERSON ? 'Persona Fisica' : 'Persona Juridica'}
                   </p>
 
                   <div className="flex items-center gap-2 text-xs text-slate-600 mb-3 pb-3 border-b border-amber-100">
                     <span className="font-mono bg-amber-50/50 px-2 py-1 rounded border border-amber-100">
-                      {owner.type === ePersonType.PERSON ? 'CUIL/CUIT' : 'CUIT'}: {owner.taxId}
+                      {owner.type === PersonType.PERSON ? 'CUIL/CUIT' : 'CUIT'}: {owner.taxId}
                     </span>
                   </div>
                 </div>
